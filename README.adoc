@@ -1,0 +1,88 @@
+:toc:
+
+# Testing framework for console tools
+
+## Setup
+Requirements:
+
+* python version 3.10 or higher
+* `pip install poetry`
+* `poetry install`
+
+## Running the tests
+
+### Running all tests:
+```bash
+python -m unittest
+```
+
+### Running self tests:
+```bash
+TEST_CONFIGS_DIR=configs/self_tests python -m unittest
+```
+
+### Running specific tests:
+```bash
+TEST_CONFIGS_DIR=configs/tools python -m unittest
+```
+
+### Tests logging level is configurable through env vars:
+```bash
+LOG_LEVEL=INFO python -m unittest
+```
+
+## Writing new tests
+
+### Bases
+* Tests are defined in `yaml` files.
+* Path to tests directory is defined in `$TEST_CONFIGS_DIR` (default value is `configs/`) environment variable.
+* It's possible to use env vars in test config file using `$ENV_VAR_NAME` or `${ENV_VAR_NAME}` syntax.
+* To understand base structure of test config file, see `ToolCommandTests` and `ToolCommand` data classes in `framework.py` file. `ToolCommandTests` class represents the whole file. `ToolCommand` class represents a single command (test case).
+
+### Explanation of test config file structure
+`TODO`
+
+### Env vars in test config file
+`TODO`
+
+### Example of test config file
+`TODO`
+```yaml
+skip: False
+name: ExtractXML
+test: "\n\nTest cases for ExtractXML tool to extract data:"
+cwd: ../../dist/bin/
+binary_path: ../../dist/bin/XMLextract
+show_results_diff: True
+default_parameters:
+  log_file: logs/XMLextract.log
+tests:
+  #
+  - test: "* with flags ag, cg, amendments"
+    cwd: ../../dist/bin/
+    flags:
+      - name: amendments
+      - name: ag
+      - name: cg
+      - name: run-cimpl
+#      - name: timeout
+#        value: 2000
+    stdin:
+      file_path: ../XMLextract-tests/test_data/BILLS-116hr1500ih.xml
+      treat_as: bytes
+    stdout:
+      file_path: test_logs/ExtractXML/stdout.json
+      treat_as: json
+    stderr:
+      file_path: test_logs/ExtractXML/stderr.log
+      treat_as: json
+    test_file:
+      file_path: ../XMLextract-tests/test_results/116hr1500ih-dtd-xmlextract-amd-cg-ag-runcimpl.json
+      treat_as: json
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: bytes
+#      encoding: utf-8
+      content: ""
+
+```
