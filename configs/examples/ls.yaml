@@ -1,0 +1,38 @@
+name: Test ls
+test: Test UNIX ls command
+skip: False
+binary_path: ls
+default_parameters:
+  log_file: ${PWD}/XMLextract.log
+tests:
+  #
+  - test: "* with wrong path"
+    arguments:
+      - /ewwew/wewe/wew
+    expected_return_code: 1
+    expected_stdout:
+      content: ""
+    expected_stderr:
+      content: "ls: /ewwew/wewe/wew: No such file or directory\n"
+
+  - test: "* with no params and flags"
+    flags:
+#      - name: l
+#      - name: a
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: bytes
+#      encoding: utf-8
+      content: |
+        README.adoc
+        __init__.py
+        __pycache__
+        configs
+        framework.py
+        poetry.lock
+        pyproject.toml
+        test_all.py
+        test_logs
+
+
+

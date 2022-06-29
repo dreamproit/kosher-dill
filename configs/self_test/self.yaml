@@ -1,0 +1,31 @@
+name: Self Test
+test: Test that framework works
+skip: False
+binary_path: python
+default_parameters:
+  log_file: ${PWD}/XMLextract.log
+env:
+  ZZZ: ${PWD}
+  LOG_LEVEL: ERROR
+tests:
+  #
+  - test: "* Run self test"
+#    cwd: ${PWD}
+    arguments:
+      - "test_all.py"
+#    flags:
+#      - name: m
+#        value: unittest
+    env:
+      TEST_CONFIGS_DIR: configs/examples
+      EXCLUDE_CONFIGS_DIR: configs/self_test
+
+#    arguments:
+#      - a
+    expected_return_code: 0
+    expected_stdout:
+      content: ""
+
+
+
+

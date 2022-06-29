@@ -1,0 +1,36 @@
+skip: False
+name: ExtractXML
+test: "\n\nTest cases for ExtractXML tool to extract data:"
+cwd: ../../dist/bin/
+binary_path: ../../dist/bin/XMLextract
+show_results_diff: True
+default_parameters:
+  log_file: logs/XMLextract.log
+tests:
+  #
+  - test: "* with flags ag, cg, amendments"
+    cwd: ../../dist/bin/
+    flags:
+      - name: amendments
+      - name: ag
+      - name: cg
+      - name: run-cimpl
+#      - name: timeout
+#        value: 2000
+    stdin:
+      file_path: ../XMLextract-tests/test_data/BILLS-116hr1500ih.xml
+      treat_as: bytes
+    stdout:
+      file_path: test_logs/ExtractXML/stdout.json
+      treat_as: json
+    stderr:
+      file_path: test_logs/ExtractXML/stderr.log
+      treat_as: json
+    test_file:
+      file_path: ../XMLextract-tests/test_results/116hr1500ih-dtd-xmlextract-amd-cg-ag-runcimpl.json
+      treat_as: json
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: bytes
+      #      encoding: utf-8
+      content: ""
