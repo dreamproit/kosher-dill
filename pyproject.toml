@@ -12,6 +12,7 @@ pyaml-env = "^1.1.5"
 dacite = "^1.6.0"
 black = {extras = ["d"], version = "^22.6.0"}
 envyaml = "^1.10.211231"
+diff-match-patch = "^20200713"
 
 [tool.poetry.dev-dependencies]
 

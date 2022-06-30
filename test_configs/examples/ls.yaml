@@ -21,7 +21,7 @@ tests:
 #      - name: a
     expected_return_code: 0
     expected_stdout:
-      treat_as: bytes
+      treat_as: text
 #      encoding: utf-8
       content: |
         README.adoc

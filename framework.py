@@ -4,15 +4,19 @@ import logging
 import os
 import subprocess
 import sys
+import unittest
+from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
 from typing import List, Union, Dict, Any, Literal, Optional
 
+import dictdiffer
 from dacite import from_dict, Config
 from envyaml import EnvYAML
 
 # from pyaml_env import parse_config
 # from pytest_dictsdiff import as_json
+from differ import TestWithDiffs
 
 log = logging.getLogger(__name__)
 log.setLevel(os.environ.get("LOG_LEVEL", logging.INFO))
@@ -389,7 +393,7 @@ class ToolCommandTests:
 
 
 def load_configs() -> Optional[List[ToolCommandTests]]:
-    tests_config_dir: str = os.environ.get("TEST_CONFIGS_DIR", "configs/")
+    tests_config_dir: str = os.environ.get("TEST_CONFIGS_DIR", "test_configs/")
     log.info(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
 
@@ -431,3 +435,54 @@ def load_configs() -> Optional[List[ToolCommandTests]]:
             "No active configs found in {}".format(tests_config_dir)
         )
     return active_configs
+
+
+def build_test_params():
+    return (
+        ("name", "test"),
+        [
+            (
+                f"{config.name}",
+                test,
+            )
+            for config in load_configs()
+            for test in config.tests
+        ],
+    )
+
+
+class BaseTestCase(TestWithDiffs):
+    test: ToolCommand
+
+    def run_cases(self):
+        for actual, expected, msg in self.test.run():
+            log.debug(asdict(self.test))
+            if actual == expected:
+                return True
+            else:
+                show_diff: bool = isinstance(expected, str)
+                print(show_diff)
+                if show_diff:
+                    diff_chunks = list(dictdiffer.diff(expected, actual, expand=True))
+                    diff = "\n".join(
+                        [diff_chunk_as_text(chunk) for chunk in diff_chunks]
+                    )
+                    self.assertEqual(actual, expected, f"{msg}\n{diff}\n")
+                else:
+                    self.assertEqual(actual, expected)
+                # self.fail(self._formatMessage("Provided values are not equal", diff))
+                # self.fail(safe_repr(diff))
+            # else:
+            #     sep = "\n" + ("=" * 80) + "\n"
+            #     msg_lines = [
+            #         "Provided items are NOT the same.",
+            #         "Left:",
+            #         as_json(d1),
+            #         sep,
+            #         "Right:",
+            #         as_json(d2),
+            #         sep,
+            #         "Diff:",
+            #         diff,
+            #     ]
+            # pytest.fail("\n\n".join(msg_lines))
