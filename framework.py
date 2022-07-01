@@ -1,78 +1,86 @@
+import configparser
 import dataclasses
 import json
 import logging
 import os
 import subprocess
 import sys
-import unittest
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
 from typing import List, Union, Dict, Any, Literal, Optional
 
-import dictdiffer
+import yaml
 from dacite import from_dict, Config
 from envyaml import EnvYAML
+from yamlinclude import YamlIncludeConstructor
 
-# from pyaml_env import parse_config
-# from pytest_dictsdiff import as_json
 from differ import TestWithDiffs
 
+YamlIncludeConstructor.add_to_loader_class(
+    loader_class=yaml.SafeLoader, base_dir="./test_configs"
+)
+
+framework_config = configparser.ConfigParser(
+    interpolation=configparser.ExtendedInterpolation()
+)
+framework_config.read("tests.conf")
+
+
+@dataclasses.dataclass
+class EnvTestsConfig:
+    LOG_LEVEL: Optional[str] = None
+    TEST_CONFIGS_DIR: Optional[Path] = None
+    EXCLUDE_CONFIGS_DIR: Optional[Path] = ""
+
+
+def _path_resolver(value: Union[str, Path, list]) -> Path:
+    path = None
+    if isinstance(value, str):
+        path = Path(value)
+    if isinstance(value, list):
+        path = Path(*value)
+    if str(path).startswith("."):
+        path = path.resolve()
+    return path
+
+
+config = from_dict(
+    data_class=EnvTestsConfig,
+    data={k: v for k, v in os.environ.items() if hasattr(EnvTestsConfig, k)},
+    config=Config(
+        type_hooks={
+            Path: _path_resolver,
+        },
+    ),
+)
+
 log = logging.getLogger(__name__)
-log.setLevel(os.environ.get("LOG_LEVEL", logging.INFO))
-formatter = logging.Formatter("%(asctime)s - %(name)s - [%(levelname)s] - %(message)s")
+log.setLevel(
+    config.LOG_LEVEL
+    # if config.LOG_LEVEL is not None
+    # else framework_config["logging"].get("level", "WARNING")
+)
+log_format = framework_config["logging"].get(
+    "format", "%(asctime)s - %(name)s - [%(levelname)s] - %(message)s"
+)
+formatter = logging.Formatter(log_format)
 
 ch = logging.StreamHandler(sys.stdout)
 ch.setFormatter(formatter)
 log.addHandler(ch)
 
-RED = "\u001b[31m"
-GREEN = "\u001b[32m"
-YELLOW = "\u001b[33m"
-BLUE = "\u001b[34m"
-MAGENTA = "\u001b[35m"
-WHITE = "\u001b[37m"
-RESET = "\u001b[0m"
 
-ACTION_COLOR_MAP = {
-    "change": GREEN,
-    "add": MAGENTA,
-    "remove": RED,
-}
+def _fix_color_mapping(mapping):
+    return {k: v.replace("\\u001b[", "\u001b[") for k, v in dict(mapping).items()}
+
+
+COLORS = _fix_color_mapping(framework_config["changes.colors"])
+ACTION_COLOR_MAP = _fix_color_mapping(framework_config["changes.action_color"])
 
 
 class ImproperlyConfigured(Exception):
     pass
-
-
-def diff_chunk_as_text(chunk):
-    action, path, values = chunk
-    # path = ".".join(map(str, path)) if isinstance(path, (tuple, list)) else path
-    # path = path or '<root>'
-    text = f"\n\n{ACTION_COLOR_MAP[action]} => {action.upper()}{RESET}: "
-    left, right = values if len(values) == 2 else (values[0], "<None>")
-    # if left is None:
-    #     text += f"{path} {WHITE}(removed){RESET}"
-    # elif right is None:
-    #     text += f"{path} {WHITE}(added){RESET}"
-    # else:
-    #     text += f"{path} {WHITE}({left} -> {right}){RESET}"
-    # return text
-
-    if action == "change":
-        text += f"""at key {path} values are different 
-        {YELLOW}BEFORE{RESET}: {left} 
-        {YELLOW}AFTER{RESET}: {right}"""
-    elif action == "add":
-        text += f"""extra values under {path} key on the right: {left}
-        """
-    elif action == "remove":
-        text += f"""missing values under {path} key on the right: {left}"""
-
-    if not text.startswith("\u001b[") and not text.endswith(RESET):
-        text = f"{text.strip()}{RESET}"
-
-    return text
 
 
 class FlagTypeEnum(Enum):
@@ -115,21 +123,37 @@ class TreatableTypes(Enum):
 
 
 @dataclasses.dataclass
-class Content:
+class BaseContent:
     content: Optional[Union[str, bytes, dict, list]]
-    file_path: Optional[Path]
-    treat_as: TreatableTypes = TreatableTypes.BYTES
     encoding: Literal["utf-8"] = "utf-8"
+    treat_as: TreatableTypes = TreatableTypes.BYTES
+    file_path: Optional[Union[list, Path]] = None
+    directory: Optional[Path] = None
+    file_name: Optional[str] = None
 
     class Meta:
-        least_one_required_fields = ("content", "file_path")
-        not_allowed_together_fields = ("content", "file_path")
+        least_one_required_fields: List[str] = ()
+        not_allowed_together_fields: List[str] = ()
 
-    def __bool__(self):
-        return bool(self.content)
+    def __post_init__(self):
+        self.validate()
+
+        if isinstance(self.file_path, (list, tuple)):
+            log.warning(f"file_path is a list, will join them {self.file_path}")
+            self.file_path = Path(*self.file_path)
+
+        if not self.file_path:
+            if self.directory and self.file_name:
+                self.file_path = self.directory / self.file_name
+            # else:
+            #     self.file_path = Path(".") / self.file_name
+            # raise ImproperlyConfigured(
+            #     "Fields file_path or directory with file_name must be set"
+            # )
+            # self.file_path = Path(self.file_name)
 
     def validate(self):
-        if not any(
+        if self.Meta.least_one_required_fields and not any(
             getattr(self, field) is not None
             for field in self.Meta.least_one_required_fields
         ):
@@ -153,87 +177,109 @@ class Content:
         match self.treat_as:
             case TreatableTypes.BYTES:
                 if isinstance(self.content, str):
-                    log.info("Converting to bytes")
+                    log.info(
+                        f"<treated> Converting to bytes. Length: {len(self.content)}"
+                    )
                     data = bytes(self.content, self.encoding)
             case TreatableTypes.TEXT:
                 if isinstance(self.content, bytes):
+                    log.info(
+                        f"<treated> Converting to text. Length: {len(self.content)}"
+                    )
                     data = str(self.content.decode(self.encoding))
             case TreatableTypes.JSON:
-                log.info("Converting to json")
+                log.info(f"<treated> Converting to json. Length: {len(self.content)}")
                 data = json.loads(self.content)
             case TreatableTypes.YAML:
-                log.info("Converting to yaml")
+                log.info(f"<treated> Converting to yaml. Length: {len(self.content)}")
                 data = EnvYAML(self.content)
         return data
 
-    def __post_init__(self):
-        self.validate()
 
-        if self.file_path is not None and not self.content:
+@dataclasses.dataclass
+class Content(BaseContent):
+    content: Optional[Union[str, bytes, dict, list]]
+    file_path: Optional[Path]
+    directory: Optional[Path] = None
+    file_name: Optional[str] = ""
+
+    class Meta:
+        least_one_required_fields = ("content", "file_path", "directory", "file_name")
+        not_allowed_together_fields = ("content", "file_path")
+
+    def __bool__(self):
+        return bool(self.content)
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        if self.file_path:
             self.content = self.file_path.read_text()
 
         match self.treat_as:
             case TreatableTypes.BYTES:
                 if isinstance(self.content, str):
-                    log.info("Converting to bytes")
+                    log.info(f"Converting {self.file_path} to bytes")
                     self.content = bytes(self.content, self.encoding)
             case TreatableTypes.TEXT:
                 if isinstance(self.content, bytes):
                     self.content = str(self.content.decode(self.encoding))
             case TreatableTypes.JSON:
-                log.info("Converting to json")
+                log.info(f"Converting {self.file_path} to json")
                 self.content = json.loads(self.content)
             case TreatableTypes.YAML:
-                log.info("Converting to yaml")
+                log.info(f"Converting {self.file_path} to yaml")
                 if self.file_path:
-                    self.content = EnvYAML(
-                        self.file_path
+                    self.content = dict(
+                        EnvYAML(str(self.file_path))
                     )  # TODO: review it! (self.content)
 
 
 @dataclasses.dataclass
-class WritableContent(Content):
-    file_path: Optional[Path] = None
+class WritableContent(BaseContent):
+    # file_path: Optional[Path] = None
+    #
+    # class Meta:
+    #     least_one_required_fields = ()
+    #     not_allowed_together_fields = ()
 
-    class Meta:
-        least_one_required_fields = ("content", "file_path")
-        not_allowed_together_fields = ()
-
-    def __post_init__(self):
-        self.validate()
+    # def __post_init__(self):
+    #     super().__post_init__()
 
     def save(self):
-        log.info(f"Saving {self} \nto\n{self.file_path}")
         if self.file_path is not None:
             if not self.file_path.parent.exists():
                 self.file_path.parent.mkdir(parents=True)
             if not self.file_path.exists():
                 self.file_path.touch()
+            log.warning(f"Saving to {self.file_path}")
             self.file_path.write_text(self.content)
         else:
-            log.debug(self.content)
+            log.warning("No file path provided")
 
 
 @dataclasses.dataclass
 class ToolCommand:
     test: str
 
-    test_file: Optional[Content]
     expected_stdout: Optional[Content]
     expected_stderr: Optional[Content]
 
     skip: bool = False
     flags: Optional[List[Flag]] = dataclasses.field(default_factory=list)
     arguments: Optional[List[str]] = dataclasses.field(default_factory=list)
+
     stdin: Optional[Content] = None
     stdout: Optional[WritableContent] = None
     stderr: Optional[WritableContent] = None
+
     expected_return_code: int = 0
 
     default_parameters: Optional[dict] = None
     binary_path: Optional[Path] = None
     yaml_test_file_path: Optional[Path] = None
     shell: bool = False
+
     root_env: Optional[dict] = None
     env: Optional[dict] = dataclasses.field(default_factory=dict)
     cwd: Optional[Path] = None
@@ -318,7 +364,8 @@ class ToolCommand:
             self.stderr = WritableContent(content=err)
         else:
             self.stderr.content = err.decode(self.stderr.encoding)
-            self.stderr.save()
+            if self.stderr.content:
+                self.stderr.save()
 
         if (
             self.expected_return_code is not None
@@ -331,13 +378,13 @@ class ToolCommand:
                 "Return code is different than expected",
             )
 
-        if self.test_file:
-            # Compare output with test file
-            yield (
-                self.stdout.treated,
-                self.test_file.content,
-                "Command stdout and expected test file are different",
-            )
+        # if self.test_file:
+        #     # Compare output with test file
+        #     yield (
+        #         self.stdout.treated,
+        #         self.test_file.content,
+        #         "Command stdout and expected test file are different",
+        #     )
 
         if self.expected_stdout:
             yield (
@@ -379,9 +426,9 @@ class ToolCommandTests:
 
     def run_tests(self, verbose=False):
         if self.skip:
-            log.warning(f"{YELLOW}SKIPPING{RESET} {self.name}")
+            log.warning(f"{COLORS['yellow']}SKIPPING{COLORS['reset']} {self.name}")
             return
-        log.warning(f"{GREEN}RUNNING{RESET} {self.name}")
+        log.warning(f"{COLORS['green']}RUNNING{COLORS['reset']} {self.name}")
         log.debug(f"{self.test}")
         for test in self.tests:
             if test.skip:
@@ -392,23 +439,27 @@ class ToolCommandTests:
                 yield exp, out, err
 
 
-def load_configs() -> Optional[List[ToolCommandTests]]:
-    tests_config_dir: str = os.environ.get("TEST_CONFIGS_DIR", "test_configs/")
-    log.info(f"Loading configs from {tests_config_dir}")
+def load_configs(
+    tests_config_dir: Optional[Union[Path, str]] = "",
+) -> Optional[List[ToolCommandTests]]:
+    global config
+    tests_config_dir: str = config.TEST_CONFIGS_DIR or "configs"
+    log.warning(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
 
-    exclude: str = os.environ.get("EXCLUDE_CONFIGS_DIR", "")
+    exclude_path = config.EXCLUDE_CONFIGS_DIR
+    # os.environ.get("EXCLUDE_CONFIGS_DIR", "")
 
-    exclude_path: Optional[Path] = None
-    if exclude:
-        exclude_path: Path = Path(exclude).resolve()
+    # exclude_path: Optional[Path] = None
+    # if exclude:
+    #     exclude_path: Path = Path(exclude).resolve()
 
     for config_file in Path(tests_config_dir).rglob("*.yaml"):
         config_file = config_file.absolute()
         if exclude_path and config_file.is_relative_to(exclude_path):
             log.info(f"Excluding file {config_file}")
             continue
-        config = from_dict(
+        test_config = from_dict(
             data_class=ToolCommandTests,
             data=dict(
                 EnvYAML(
@@ -418,12 +469,12 @@ def load_configs() -> Optional[List[ToolCommandTests]]:
             config=Config(
                 cast=[FlagTypeEnum, TreatableTypes],
                 type_hooks={
-                    Path: lambda v: Path(v).resolve() if v.startswith(".") else Path(v),
+                    Path: _path_resolver,
                 },
             ),
         )
-        config.yaml_test_file_path = os.path.join(tests_config_dir, config_file)
-        gathered_configs.append(config)
+        test_config.yaml_test_file_path = os.path.join(tests_config_dir, config_file)
+        gathered_configs.append(test_config)
 
     if not gathered_configs:
         raise ImproperlyConfigured("No configs found in {}".format(tests_config_dir))
@@ -437,52 +488,30 @@ def load_configs() -> Optional[List[ToolCommandTests]]:
     return active_configs
 
 
-def build_test_params():
-    return (
-        ("name", "test"),
-        [
-            (
-                f"{config.name}",
-                test,
-            )
-            for config in load_configs()
-            for test in config.tests
-        ],
-    )
-
-
 class BaseTestCase(TestWithDiffs):
     test: ToolCommand
 
     def run_cases(self):
         for actual, expected, msg in self.test.run():
             log.debug(asdict(self.test))
-            if actual == expected:
-                return True
-            else:
-                show_diff: bool = isinstance(expected, str)
-                print(show_diff)
-                if show_diff:
-                    diff_chunks = list(dictdiffer.diff(expected, actual, expand=True))
-                    diff = "\n".join(
-                        [diff_chunk_as_text(chunk) for chunk in diff_chunks]
-                    )
-                    self.assertEqual(actual, expected, f"{msg}\n{diff}\n")
-                else:
-                    self.assertEqual(actual, expected)
-                # self.fail(self._formatMessage("Provided values are not equal", diff))
-                # self.fail(safe_repr(diff))
-            # else:
-            #     sep = "\n" + ("=" * 80) + "\n"
-            #     msg_lines = [
-            #         "Provided items are NOT the same.",
-            #         "Left:",
-            #         as_json(d1),
-            #         sep,
-            #         "Right:",
-            #         as_json(d2),
-            #         sep,
-            #         "Diff:",
-            #         diff,
-            #     ]
-            # pytest.fail("\n\n".join(msg_lines))
+            self.assertEqual(expected, actual)
+
+
+def build_test_params(
+    tests_config_dir: Optional[Union[Path, str]] = "",
+) -> tuple[tuple[str, str], list[tuple[str, ToolCommand]]]:
+    loaded_configs = load_configs(
+        tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
+    )
+    log.debug(f"Loaded configs: {loaded_configs}")
+    return (
+        ("name", "test"),
+        [
+            (
+                f"{test_config.name}_{test.test}",
+                test,
+            )
+            for test_config in loaded_configs
+            for test in test_config.tests
+        ],
+    )

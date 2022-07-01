@@ -19,20 +19,25 @@ tests:
     flags:
 #      - name: l
 #      - name: a
+    stdout:
+      treat_as: text
+
     expected_return_code: 0
     expected_stdout:
       treat_as: text
-#      encoding: utf-8
       content: |
         README.adoc
         __init__.py
         __pycache__
-        configs
+        commands.py
+        differ.py
         framework.py
         poetry.lock
         pyproject.toml
         test_all.py
+        test_configs
         test_logs
+        tests.conf
 
 
 

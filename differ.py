@@ -2,6 +2,8 @@ import re
 import unittest
 
 import textwrap
+
+import dictdiffer
 import diff_match_patch
 
 
@@ -177,6 +179,33 @@ class TestWithDiffs(unittest.TestCase):
         if diff_match_patch:
             self.addTypeEqualityFunc(str, self.assertEqual)
 
+    @staticmethod
+    def diff_chunk_as_text(
+        chunk, colors: dict[str, str] = None, color_map: dict[str, str] = None
+    ):
+        if not colors:
+            from framework import COLORS as colors
+        if not color_map:
+            from framework import ACTION_COLOR_MAP as color_map
+        action, path, values = chunk
+        text = f"\n\n{color_map[action]} => {action.upper()}{colors['reset']}: "
+        left, right = values if len(values) == 2 else (values[0], "<None>")
+
+        if action == "change":
+            text += f"""at key {path} values are different 
+            {colors['yellow']}BEFORE{colors['reset']}: {left} 
+            {colors['yellow']}AFTER{colors['reset']}: {right}"""
+        elif action == "add":
+            text += f"""extra values under {path} key on the right: {left}
+            """
+        elif action == "remove":
+            text += f"""missing values under {path} key on the right: {left}"""
+
+        if not text.startswith("\u001b[") and not text.endswith(colors["reset"]):
+            text = f"{text.strip()}{colors['reset']}"
+
+        return text
+
     def assertEqual(self, expected, actual, msg=""):
         """
         How to wrap correctly the unit testing diff?
@@ -185,9 +214,20 @@ class TestWithDiffs(unittest.TestCase):
         # print( '\n\nexpected\n%s' % expected )
         # print( '\n\nactual\n%s' % actual )
 
+        if not (isinstance(expected, (str, bytes)) or isinstance(actual, (str, bytes))):
+            diff_chunks = list(dictdiffer.diff(expected, actual, expand=True))
+            diff = "\n".join(
+                [
+                    self.diff_chunk_as_text(chunk)  # , COLORS, ACTION_COLOR_MAP)
+                    for chunk in diff_chunks
+                ]
+            )
+            return super().assertEqual(actual, expected, f"{msg}\n{diff}\n")
+            # return super().assertEqual(expected, actual, msg)
+
         if expected != actual:
             diff_match = DiffMatchPatch()
-
+            print("DIFF MODE: ", self.diffMode)
             if self.diffMode == 0:
                 diffs = diff_match.diff_main(expected, actual)
 

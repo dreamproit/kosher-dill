@@ -1,9 +1,9 @@
-skip: True
-name: ExtractXML
-test: "\n\nTest cases for ExtractXML tool to extract data:"
-cwd: &CWD ../../dist/bin/
-binary_path: ../../dist/bin/XMLextract
-show_results_diff: True
+skip: False
+name: runAMPL
+test: "\n\nTest cases for runAMPL tool"
+cwd: ../../dist/bin/
+binary_path: ../../dist/bin/runAMPL
+#show_results_diff: True
 
 text_output: &TEXT_OUTPUT
   treat_as: text
@@ -13,13 +13,35 @@ json_output: &JSON_OUTPUT
   treat_as: json
 
 
+ALL_POSSIBLE_FLAGS:
+#  - name: ampl
+#    value: <filename>
+#  - name: xml-input <xml filename>
+#  - name: xml-output <xml filename>
+#  - name: json-file <filename>
+#  - name: json-output <filename>
+#  - name: document-conf <filename> (short -dc)
+#  - name: mode redlining/publish
+#  - name: redlining
+#  - name: output-new-xml
+#  - name: db <path>
+#  - name: base-db <path>
+#  - name: branch <branch-name>
+#  - name: orig-branch <branch-name>
+#  - name: lawdate <mm/dd/yyyy>
+#  - name: amend-date <mm/dd/yyyy>
+#  - name: alias <orig> <new>
+#  - name: retrieve-xmls
+
+
 default_parameters: &DEFAULT_TEST_PARAMETERS
+  skip: True
   cwd: ../../dist/bin/
   log_file: logs/XMLextract.log
 
   stdin:
     <<: *BYTES_OUTPUT
-    directory: ../XMLextract-tests/test_data/
+    directory: ../AMPL-test2
     file_name: BILLS-116hr1500ih.xml
     treat_as: bytes
   stdout: &STDOUT
@@ -35,6 +57,7 @@ default_parameters: &DEFAULT_TEST_PARAMETERS
 
 tests:
   - <<: *DEFAULT_TEST_PARAMETERS
+    skip: False
     test: "* with no flags"
     _file_name: &FILE_NAME 116hr1500ih.json
     flags:

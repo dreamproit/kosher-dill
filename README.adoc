@@ -26,6 +26,13 @@ TEST_CONFIGS_DIR=configs/self_tests python -m unittest
 TEST_CONFIGS_DIR=configs/tools python -m unittest
 ```
 
+
+## Understanding output of tests
+If test fails it will print out the error message.
+If tests passes it won't print anything until you set log level to `INFO` or lower.
+
+
+
 ### Tests logging level is configurable through env vars:
 ```bash
 LOG_LEVEL=INFO python -m unittest
