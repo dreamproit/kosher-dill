@@ -1,5 +1,5 @@
 name: Test ls
-test: Test UNIX ls command
+description: Test UNIX ls command
 skip: False
 binary_path: ls
 default_parameters:
@@ -7,6 +7,7 @@ default_parameters:
 tests:
   #
   - test: "* with wrong path"
+    skip: True
     arguments:
       - /ewwew/wewe/wew
     expected_return_code: 1
@@ -29,15 +30,15 @@ tests:
         README.adoc
         __init__.py
         __pycache__
-        commands.py
         differ.py
         framework.py
         poetry.lock
         pyproject.toml
         test_all.py
         test_configs
-        test_logs
         tests.conf
+        tests_data
+
 
 
 

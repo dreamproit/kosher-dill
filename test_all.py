@@ -1,4 +1,5 @@
 import unittest
+from typing import Callable
 
 from parameterized import parameterized_class
 
@@ -11,6 +12,8 @@ from framework import (
 @parameterized_class(*build_test_params())
 class Test(BaseTestCase):
     diffMode = 2
+    name: str
+    test: Callable
 
     def test_case(self):
         self.run_cases()

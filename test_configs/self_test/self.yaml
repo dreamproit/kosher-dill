@@ -1,11 +1,10 @@
 name: Self Test
-test: Test that framework works
+description: Test that framework works
 skip: False
 binary_path: python
 default_parameters:
   log_file: ${PWD}/XMLextract.log
 env:
-  ZZZ: ${PWD}
   LOG_LEVEL: ERROR
 tests:
   #
@@ -16,8 +15,9 @@ tests:
 #      - name: m
 #        value: unittest
     env:
+      LOG_LEVEL: INFO
       TEST_CONFIGS_DIR: test_configs/examples
-      EXCLUDE_CONFIGS_DIR: test_configs/self_test
+#      EXCLUDE_CONFIGS_DIR: test_configs/self_test
 
 #    arguments:
 #      - a

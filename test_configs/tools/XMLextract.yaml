@@ -1,52 +1,52 @@
-skip: True
+# Whole file will be converted into the ToolCommandTest class
+skip: False
 name: ExtractXML
-test: "\n\nTest cases for ExtractXML tool to extract data:"
-cwd: &CWD ../../dist/bin/
+description: "\n\nTest cases for ExtractXML tool to extract data:"
+cwd: ../../dist/bin/
 binary_path: ../../dist/bin/XMLextract
 show_results_diff: True
 
-text_output: &TEXT_OUTPUT
+text_output: &AS_TEXT
   treat_as: text
-bytes_output: &BYTES_OUTPUT
+bytes_output: &AS_BYTES
   treat_as: bytes
-json_output: &JSON_OUTPUT
+json_output: &AS_JSON
   treat_as: json
 
-
+# Defining default test case structure and data
 default_parameters: &DEFAULT_TEST_PARAMETERS
   cwd: ../../dist/bin/
   log_file: logs/XMLextract.log
-
   stdin:
-    <<: *BYTES_OUTPUT
-    directory: ../XMLextract-tests/test_data/
-    file_name: BILLS-116hr1500ih.xml
+    file_path: [../XMLextract-tests/test_data/, BILLS-116hr1500ih.xml]
     treat_as: bytes
   stdout: &STDOUT
-    <<: *JSON_OUTPUT
-    directory: &RESULT_DIR test_logs/ExtractXML/stdout/
+    <<: *AS_JSON
+    directory: &RESULT_DIR tests_data/ExtractXML/stdout/
   stderr: &STDERR
-    <<: *TEXT_OUTPUT
-    directory: &ERR_DIR test_logs/ExtractXML/stderr/
+    <<: *AS_TEXT
+    directory: &ERR_DIR tests_data/ExtractXML/stderr/
   expected_stdout: &EXPECTED_STDOUT
-    <<: *JSON_OUTPUT
-    directory: &EXPECTED_RESULTS_DIR test_logs/ExtractXML/
+    <<: *AS_JSON
+    directory: &EXPECTED_RESULTS_DIR tests_data/ExtractXML/
   expected_return_code: 0
 
 tests:
+  # List of test cases. Each of them will be converted into a ToolCommand class
   - <<: *DEFAULT_TEST_PARAMETERS
+    # DEFAULT_TEST_PARAMETERS will be used as a base for each test case
+    # Now you can redefine any of the parameters (from DEFAULT_TEST_PARAMETERS) or add new ones
     test: "* with no flags"
-    _file_name: &FILE_NAME 116hr1500ih.json
     flags:
     stdout:
       <<: *STDOUT
-      file_name: 116hr1500ih.json
+      file_path: [*RESULT_DIR, 116hr1500ih.json]
     stderr:
       <<: *STDERR
-      file_name: 116hr1500ih.error.log
+      file_path: [*ERR_DIR, 116hr1500ih.error.log]
     expected_stdout:
       <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih.json
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih.json]
 
   - <<: *DEFAULT_TEST_PARAMETERS
     test: "* with flag: -ag"
@@ -55,17 +55,19 @@ tests:
     #      - name: amendments
     #      - name: cg
     #      - name: run-cimpl
-    #      - name: timeout
-    #        value: 2000
+      - name: timeout
+        value: "2000"
+        type: int
     stdout:
       <<: *STDOUT
-      file_name: 116hr1500ih-ag.json
+      file_path: [*RESULT_DIR, 116hr1500ih-ag.json]
     stderr:
       <<: *STDERR
-      file_name: 116hr1500ih-ag.error.log
+      file_path: [*ERR_DIR, 116hr1500ih-ag.error.log]
+    expected_return_code: 0
     expected_stdout:
       <<: *EXPECTED_STDOUT
-      file_name:  116hr1500ih-ag.json
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag.json]
 
   - <<: *DEFAULT_TEST_PARAMETERS
     test: "* with flags: -ag, -amendments"
@@ -78,14 +80,14 @@ tests:
     #        value: 2000
     stdout:
       <<: *STDOUT
-      file_name: 116hr1500ih-ag-amd.json
+      file_path: [*RESULT_DIR, 116hr1500ih-ag-amd.json]
     stderr:
       <<: *STDERR
-      file_name: 116hr1500ih-ag-amd.error.log
+      file_path: [*ERR_DIR, 116hr1500ih-ag-amd.error.log]
     expected_return_code: 0
     expected_stdout:
       <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih-ag-amd.json
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag-amd.json]
 
 
   - <<: *DEFAULT_TEST_PARAMETERS
@@ -99,15 +101,15 @@ tests:
     #        value: 2000
     stdout:
       <<: *STDOUT
-      file_name: 116hr1500ih-ag-cg-amd.json
-    #      file_path: test_logs/ExtractXML/out/116hr1500ih-ag.json
+      file_path: [*RESULT_DIR, 116hr1500ih-ag-cg-amd.json]
+    #      file_path: tests_data/ExtractXML/out/116hr1500ih-ag.json
     stderr:
       <<: *STDERR
-      file_name: 116hr1500ih-ag-cg-amd.error.log
+      file_path: [*ERR_DIR, 116hr1500ih-ag-cg-amd.error.log]
     expected_return_code: 0
     expected_stdout:
       <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih-ag-cg-amd.json
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag-cg-amd.json]
 
   - <<: *DEFAULT_TEST_PARAMETERS
     test: "* with flags: -ag, -cg, -amendments, -run-cimpl"
@@ -120,12 +122,12 @@ tests:
     #        value: 2000
     stdout:
       <<: *STDOUT
-      file_name: 116hr1500ih-ag-cg-amd-run-cimpl.json
-    #      file_path: test_logs/ExtractXML/out/116hr1500ih-ag.json
+      file_path: [*RESULT_DIR, 116hr1500ih-ag-cg-amd-run-cimpl.json]
+    #      file_path: tests_data/ExtractXML/out/116hr1500ih-ag.json
     stderr:
       <<: *STDERR
-      file_name: 116hr1500ih-ag-cg-amd-run-cimpl.error.log
+      file_path: [*ERR_DIR, 116hr1500ih-ag-cg-amd-run-cimpl.error.log]
     expected_return_code: 0
     expected_stdout:
       <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih-ag-cg-amd-run-cimpl.json
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag-cg-amd-run-cimpl.json]

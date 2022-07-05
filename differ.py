@@ -214,7 +214,11 @@ class TestWithDiffs(unittest.TestCase):
         # print( '\n\nexpected\n%s' % expected )
         # print( '\n\nactual\n%s' % actual )
 
-        if not (isinstance(expected, (str, bytes)) or isinstance(actual, (str, bytes))):
+        if (
+            not isinstance(expected, (str, bytes))
+            and not isinstance(actual, (str, bytes))
+            and expected != actual
+        ):
             diff_chunks = list(dictdiffer.diff(expected, actual, expand=True))
             diff = "\n".join(
                 [
@@ -222,8 +226,13 @@ class TestWithDiffs(unittest.TestCase):
                     for chunk in diff_chunks
                 ]
             )
-            return super().assertEqual(actual, expected, f"{msg}\n{diff}\n")
-            # return super().assertEqual(expected, actual, msg)
+            # return self.fail(f"{msg}\n{diff}\n")
+            return super().assertEqual(expected, actual, msg)
+
+        if isinstance(expected, bytes):
+            expected = expected.decode("utf-8")
+        if isinstance(actual, bytes):
+            actual = actual.decode("utf-8")
 
         if expected != actual:
             diff_match = DiffMatchPatch()

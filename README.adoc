@@ -1,95 +1,527 @@
 :toc:
 
-# Testing framework for console tools
+= Testing framework for console tools
 
-## Setup
+== Setup
 Requirements:
 
 * python version 3.10 or higher
 * `pip install poetry`
 * `poetry install`
 
-## Running the tests
 
-### Running all tests:
-```bash
+== Yaml files
+=== Overview
+I *strongly* recommend reading about https://yaml.org/spec/1.2.2/[yaml] file format.
+
+It allows user to define variables inside file and use them to make files shorter.
+
+Read this https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/[article] to see examples.
+
+Short example:
+[source,yaml]
+----
+definitions:
+    steps:
+        - step: &build-test
+          name: Build and test
+          script:
+              - mvn package
+          artifacts:
+              - target/**
+
+pipelines:
+    branches:
+        develop:
+            - step: *build-test
+        main:
+            - step: *build-test
+        some_feature:
+            - step:
+              <<: *build-test
+              name: Testing on Main
+----
+
+In `test_configs` folder you can find some examples of yaml files which are using this approach.
+
+=== Yaml file multiline strings
+*Strongly* recommend visiting https://yaml-multiline.info[this page] to understand how it works.
+
+
+=== About env vars in yaml files
+There's an ability to use env vars inside yaml files.
+You can use `$ENV_VAR_NAME` or `${ENV_VAR_NAME}` syntax to get access to env vars.
+
+Example:
+[source,yaml]
+----
+test: "${USER}"
+----
+Here we will use `$USER` env var to get current username and assign it to `test` field of data structure defined in `yaml` file.
+
+
+
+== Running the tests
+
+=== Running all tests
+
+[source,bash]
+----
 python -m unittest
-```
+----
 
-### Running self tests:
-```bash
+### Running self tests
+
+[source,bash]
+----
 TEST_CONFIGS_DIR=configs/self_tests python -m unittest
-```
+----
 
-### Running specific tests:
-```bash
+=== Running all test config files from directory
+
+[source,bash]
+----
 TEST_CONFIGS_DIR=configs/tools python -m unittest
-```
+----
+
+=== Running specific test config file
+
+[source,bash]
+----
+TEST_CONFIGS_DIR=configs/examples/ls.yaml python -m unittest
+----
 
 
-## Understanding output of tests
+== Understanding the output
 If test fails it will print out the error message.
+
 If tests passes it won't print anything until you set log level to `INFO` or lower.
 
+[source, bash]
+----
+TEST_CONFIGS_DIR=test_configs/examples python -m unittest
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.033s
+
+OK
+----
+
+To see which tests were run and which failed you can use the following command:
+
+[source, bash]
+----
+TEST_CONFIGS_DIR=test_configs/examples python -m unittest -vv
+test_case (test_all.Test_0_Test_echo__echo_ddi_dev) ... ok
+test_case (test_all.Test_1_Test_echo__echo_ddi_dev_with_n_flag) ... ok
+test_case (test_all.Test_2_Test_ls__with_wrong_path) ... ok
+test_case (test_all.Test_3_Test_ls__with_no_params_and_flags) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.033s
+
+OK
+----
 
 
-### Tests logging level is configurable through env vars:
-```bash
+=== Tests logging level is configurable through env vars
+
+[source,bash]
+----
 LOG_LEVEL=INFO python -m unittest
-```
+----
 
-## Writing new tests
+=== Unit tests verbose output
 
-### Bases
+[source,bash]
+----
+python -m unittest -vv
+----
+
+== Writing new tests
+
+=== Bases
 * Tests are defined in `yaml` files.
 * Path to tests directory is defined in `$TEST_CONFIGS_DIR` (default value is `configs/`) environment variable.
 * It's possible to use env vars in test config file using `$ENV_VAR_NAME` or `${ENV_VAR_NAME}` syntax.
-* To understand base structure of test config file, see `ToolCommandTests` and `ToolCommand` data classes in `framework.py` file. `ToolCommandTests` class represents the whole file. `ToolCommand` class represents a single command (test case).
+* To understand base structure of test config file, see <<ConfigTestCase case configuration, ConfigTestCase>> and <<ConfigTestCase case configuration, ConfigTestCase>> chapters.
 
-### Explanation of test config file structure
-`TODO`
+If you want to understand theirs logic of work see `TestConfig` and `ConfigTestCase` classes in `framework.py` file.
 
-### Env vars in test config file
-`TODO`
+Where:
 
-### Example of test config file
-`TODO`
-```yaml
+* `TestConfig` class represents the whole file.
+* `ConfigTestCase` class represents a single command to be executed (test case).
+
+=== Yaml files validation
+Basic structure of data and types are validated and cast to proper types by python https://docs.python.org/3/library/dataclasses.html[`dataclasses`] and https://pypi.org/project/dacite/0.0.13/[`dacite`] library.
+
+This piece of code is responsible for this functionality:
+
+[source,python]
+----
+from dacite import from_dict
+from envyaml import EnvYAML
+
+test_config = from_dict(
+    data_class=TestConfig,
+    data=dict(
+        EnvYAML(
+            str(config_file.absolute()),
+        )
+    ),
+    ...
+)
+----
+
+Before tests are executed, they are validated:
+
+* using `yaml` library
+* using data classes defined in `framework.py` file fields will be automatically converted to the proper python types
+* using custom logic defined in `__post_init__` or `validate` methods of data classes
+
+If `yaml` file was not properly configured test framework will raise an exception.
+
+For example:
+
+[source,commandline]
+----
+python -m unittest
+2022-07-06 00:07:10,377 - framework [framework.py:487] - [ERROR] - Error loading config test_configs/tools/runAMPL.yaml: At least one of ('content', 'file_path') must be provided
+E
+======================================================================
+ERROR: test_all (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+----
+
+This will be followed by many lines of traceback, so you should scroll up until you see the line where you run tests.
+
+
+=== Environment variables used to configure running tests
+Key parameters for running tests could be defined in environment variables.
+
+|===
+|Env var name |Type | Description
+
+|LOG_LEVEL
+|Optional[str]
+|Logging level. Default value is `ERROR`.
+
+|TEST_CONFIGS_DIR
+|Optional[Path]
+|Path to directory with test config files. Default value is `test_configs/`.
+
+|EXCLUDE_CONFIGS_DIR
+|Optional[Path]
+|Path to directory with test config files that should be excluded from tests. Default value is `exclude_configs/`.
+|===
+
+=== Basic test config file structure
+
+[source,yaml]
+----
+name: Test
+test: Test some command
 skip: False
-name: ExtractXML
-test: "\n\nTest cases for ExtractXML tool to extract data:"
-cwd: ../../dist/bin/
-binary_path: ../../dist/bin/XMLextract
-show_results_diff: True
+binary_path: /path/to/binary
 default_parameters:
-  log_file: logs/XMLextract.log
+  log_file: ${PWD}/empty.log
 tests:
   #
-  - test: "* with flags ag, cg, amendments"
-    cwd: ../../dist/bin/
+  - test: "Test 1"
+    skip: True
     flags:
-      - name: amendments
-      - name: ag
-      - name: cg
-      - name: run-cimpl
-#      - name: timeout
-#        value: 2000
-    stdin:
-      file_path: ../XMLextract-tests/test_data/BILLS-116hr1500ih.xml
-      treat_as: bytes
-    stdout:
-      file_path: test_logs/ExtractXML/stdout.json
-      treat_as: json
-    stderr:
-      file_path: test_logs/ExtractXML/stderr.log
-      treat_as: json
-    test_file:
-      file_path: ../XMLextract-tests/test_results/116hr1500ih-dtd-xmlextract-amd-cg-ag-runcimpl.json
-      treat_as: json
+      - name: flag-with-no-value
+      - name: flag-with-value
+        value: "some-value"
+    arguments:
+      - "any-additional-argument-1"
+      - "any-additional-argument-2"
     expected_return_code: 0
     expected_stdout:
-      treat_as: bytes
-#      encoding: utf-8
       content: ""
+    expected_stderr:
+      content: "Expected Error Message thrown by the tool in stderr stream"
 
-```
+  - test: "test 2"
+    flags:
+    stdout:
+      treat_as: text
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: text
+      content: |
+        Some text
+        Some text
+        Some text
+    expected_stderr:
+      file_path: expected_file.txt
+----
+
+
+=== Explanation of test config file structure
+Each file is going to be parsed as a YAML document and converted to a Python object instance of `TestConfigFile` class defined in `framework.py` file.
+
+Root Yaml file fields are:
+
+|===
+|Field name |Field Type |Description |Required
+
+|binary_path
+|Path
+|Path to the binary to be tested.
+|True
+
+|default_parameters
+|Dict[str, Any]
+|Default parameters for all test cases.
+|True
+
+|name
+|str
+|Name of the test.
+|True
+
+|description
+|Optional[str]
+|Description of the test.
+|False
+
+|skip
+|bool
+|If `True`, test will be skipped.
+|False
+
+|env
+|Optional[dict]
+|{}
+|Pass additional environment variables to the test case run.
+
+|cwd
+|Optional[Path]
+|Path to the working directory where test should be run.
+|None
+
+|tests
+|List[<<ConfigTestCase case configuration, ConfigTestCase>>]
+|List of test cases.
+|True
+|===
+
+#### ConfigTestCase case configuration
+Basic structure of `ConfigTestCase` class is:
+
+[source,yaml]
+----
+test: "* with flag: -ag"
+skip: False
+cwd: ../../dist/bin/
+flags:
+  - name: ag
+  - name: timeout
+    value: "2000"
+    type: int
+stdout:
+  treat_as: json
+  file_path: [/OUT/RESULT/DIR/, test_stdout.json]
+stderr:
+  treat_as: text
+  file_path: [/OUT/ERR/DIR/, test_stderr.log]
+expected_return_code: 0
+expected_stdout:
+  treat_as: json
+  file_path:  [/EXPECTED/RESULTS/DIR/, expected_test_stdout.json]
+----
+
+
+|===
+|Name |Type |Description |Required
+
+|test
+|str
+|Test name.
+|True
+
+|expected_stdout
+|<<Content data structure, Content>>
+|Expected stdout content.
+|False
+
+|expected_stderr
+|<<Content data structure, Content>>
+|Expected stderr content.
+|False
+
+|flags
+|List[Flag]]
+|List of flags to be passed to the binary.
+|False
+
+|arguments
+|List[str]
+|List of arguments to be passed to the binary.
+|False
+
+|skip
+|bool
+|If `True`, test will be skipped.
+|False
+
+|stdin
+|<<Content data structure, Content>>
+|Content to be passed to the binary stdin stream.
+|False
+
+|stdout
+|<<Content data structure, Content>>
+|Where to store stdout stream.
+|False
+
+|stderr
+|<<Content data structure, Content>>
+|Where to store stderr stream.
+|False
+
+|expected_return_code
+|int
+|Expected return code. Default value is `0`.
+|False
+
+|shell
+|bool
+|If `True`, test will be run in shell. (Read here for more info: https://docs.python.org/3/library/subprocess.html#frequently-used-arguments[Here])
+|False
+
+|env
+|dict
+|Environment variables to be passed to the test.
+|False
+
+|cwd
+|Path
+|Path to the working directory where test should be run.
+|False
+|===
+
+=== Content data structure
+This data structure represents the content to be read from file or stdin stream or write to the file as input/output of the test.
+
+==== Rules for content data structure
+There are several validation rules for the content data structure:
+
+* If `file_path` is defined then the `content` field  will be ignored because `file_path` is used to read the content from file.
+* For <<ConfigTestCase case configuration, ConfigTestCase>> fields `stdout` and `expected_stdout` and `expected_stderr` either `file_path` or `content` must be defined because these fields are used to read the content from file.
+* For <<ConfigTestCase case configuration, ConfigTestCase>> fields `stdout`, `stderr` there's no such validation because you may want to omit writing the content to the file.
+
+==== Explanation of content data structure fields
+|===
+|Name |Type |Description |Required
+
+|content
+|str
+|If defined as string it will be literally passed.
+If content is empty but file_path is defined, it will be read from file.
+Depending on the treat_as value, content will be converted to the appropriate type.
+|False
+
+|encoding:
+|Literal["utf-8"]
+|"utf-8"
+|False
+
+|treat_as
+|str
+|Type of the content. . Possible values are:
+    `"json"`,
+    `"yaml"`,
+    `"bytes"`,
+    `"text"`.
+Default values is `"bytes"`. Content will be quoted and converted to the appropriate type.
+|False
+
+|file_path
+|Union[list, Path]
+|Path to the file where content should be stored. If list passed, it will be converted to Path by joining elements of the list.
+If not defined content won't be stored in file (stdout/stderr).
+|False
+|===
+
+==== Flag data structure and passing flags to the binary
+To pass command flags use the `Flag` data structure.
+
+===== Example of Flag data structure
+[source,yaml]
+----
+flags:
+  - name: some-flag
+    value: some-value
+    type: str
+  - name: flag-with-path
+    value: "./path/to/file.txt"
+    type: resolved_path
+  - name: -two-dash-flag
+    value: "some-other-value"
+    type: str
+----
+
+These flags will be passed to the binary as:
+
+[source, text]
+----
+-some-flag some-value -flag-with-path ./path/to/file.txt --two-dash-flag some-other-value
+----
+
+|===
+|Name |Type |Description |Required
+
+|name
+|str
+|Name of the flag.
+|True
+
+|type
+|str
+|Type of the flag. Possible values are:
+    "str"
+    "path"
+    "resolved_path"
+    "int".
+
+    By default, flag value is treated as `str`.
+
+    If it's `resolved_path` type, then the flag value will be resolved to the absolute path.
+
+|False
+
+|value
+|Optional[Union[str, Path, int, float, decimal.Decimal]]
+|Value of the flag.
+|False
+|===
+
+== Other configuration options
+It's possible to define logging options for the test framework through `tests.conf` file.
+
+NOTE: By default, you don't need to change anything in this file unless you are not customizing output of tests (color schema and format).
+
+[source, ini]
+----
+[logging]
+format = %(asctime)s - %(name)s [%(filename)s:%(lineno)d] - [%(levelname)s] - %(message)s
+level = WARNING
+
+[changes.colors]
+RED = \u001b[31m
+GREEN = \u001b[32m
+YELLOW = \u001b[33m
+BLUE = \u001b[34m
+MAGENTA = \u001b[35m
+WHITE = \u001b[37m
+RESET = \u001b[0m
+
+[changes.action_color]
+change = ${changes.colors:GREEN}
+add = ${changes.colors:MAGENTA}
+remove = ${changes.colors:RED}
+----
+

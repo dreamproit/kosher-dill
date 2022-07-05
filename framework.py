@@ -1,5 +1,6 @@
 import configparser
 import dataclasses
+import decimal
 import json
 import logging
 import os
@@ -8,7 +9,7 @@ import sys
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import List, Union, Dict, Any, Literal, Optional
+from typing import List, Union, Dict, Any, Literal, Optional, Generator
 
 import yaml
 from dacite import from_dict, Config
@@ -29,8 +30,8 @@ framework_config.read("tests.conf")
 
 @dataclasses.dataclass
 class EnvTestsConfig:
-    LOG_LEVEL: Optional[str] = None
-    TEST_CONFIGS_DIR: Optional[Path] = None
+    LOG_LEVEL: Optional[str] = logging.ERROR
+    TEST_CONFIGS_DIR: Optional[Path] = Path("./test_configs")
     EXCLUDE_CONFIGS_DIR: Optional[Path] = ""
 
 
@@ -94,25 +95,35 @@ class FlagTypeEnum(Enum):
 class Flag:
     name: str
     type: Optional[FlagTypeEnum]
-    value: Union[str, Path, int, None]
+    value: Optional[Union[str, Path, int, float, decimal.Decimal]]  # = None
 
     def __post_init__(self):
-        if self.value or self.type:
+        log.info(f"Flag.__post_init__({self})")
+        if self.value and self.type:
             match self.type:
+                # case FlagTypeEnum.INT:
+                #     self.value = int(self.value)
                 case FlagTypeEnum.STR:
                     self.value = self.value
                 case FlagTypeEnum.PATH:
                     self.value = Path(self.value)
                 case FlagTypeEnum.RESOLVED_PATH:
                     self.value = Path(self.value).resolve()
-                case _:
-                    self.value = self.value
+                # case _:
+                #     self.value = self.value
 
-    def __str__(self):
-        if self.value or self.type:
-            return f"-{self.name} {self.value}"
+    # def __str__(self):
+    #     if self.value or self.type:
+    #         return f"-{self.name} {self.value}"
+    #     else:
+    #         return f"-{self.name}"
+
+    def build(self):
+        log.info(f"Flag.build({self})")
+        if self.value:  # or self.type:
+            return f"-{self.name}", f"{self.value}"
         else:
-            return f"-{self.name}"
+            return (f"-{self.name}",)
 
 
 class TreatableTypes(Enum):
@@ -128,8 +139,6 @@ class BaseContent:
     encoding: Literal["utf-8"] = "utf-8"
     treat_as: TreatableTypes = TreatableTypes.BYTES
     file_path: Optional[Union[list, Path]] = None
-    directory: Optional[Path] = None
-    file_name: Optional[str] = None
 
     class Meta:
         least_one_required_fields: List[str] = ()
@@ -139,18 +148,12 @@ class BaseContent:
         self.validate()
 
         if isinstance(self.file_path, (list, tuple)):
-            log.warning(f"file_path is a list, will join them {self.file_path}")
+            log.warning(f"file_path is a list, joining: {self.file_path}")
             self.file_path = Path(*self.file_path)
 
-        if not self.file_path:
-            if self.directory and self.file_name:
-                self.file_path = self.directory / self.file_name
-            # else:
-            #     self.file_path = Path(".") / self.file_name
-            # raise ImproperlyConfigured(
-            #     "Fields file_path or directory with file_name must be set"
-            # )
-            # self.file_path = Path(self.file_name)
+        # if not self.file_path:
+        #     if self.directory and self.file_name:
+        #         self.file_path = self.directory / self.file_name
 
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
@@ -199,12 +202,14 @@ class BaseContent:
 @dataclasses.dataclass
 class Content(BaseContent):
     content: Optional[Union[str, bytes, dict, list]]
-    file_path: Optional[Path]
-    directory: Optional[Path] = None
-    file_name: Optional[str] = ""
+    # directory: Optional[Path] = None
+    # file_name: Optional[str] = None
 
     class Meta:
-        least_one_required_fields = ("content", "file_path", "directory", "file_name")
+        least_one_required_fields = (
+            "content",
+            "file_path",
+        )  # "directory", "file_name")
         not_allowed_together_fields = ("content", "file_path")
 
     def __bool__(self):
@@ -237,15 +242,6 @@ class Content(BaseContent):
 
 @dataclasses.dataclass
 class WritableContent(BaseContent):
-    # file_path: Optional[Path] = None
-    #
-    # class Meta:
-    #     least_one_required_fields = ()
-    #     not_allowed_together_fields = ()
-
-    # def __post_init__(self):
-    #     super().__post_init__()
-
     def save(self):
         if self.file_path is not None:
             if not self.file_path.parent.exists():
@@ -259,17 +255,18 @@ class WritableContent(BaseContent):
 
 
 @dataclasses.dataclass
-class ToolCommand:
+class ConfigTestCase:
     test: str
 
     expected_stdout: Optional[Content]
     expected_stderr: Optional[Content]
 
-    skip: bool = False
-    flags: Optional[List[Flag]] = dataclasses.field(default_factory=list)
+    flags: Optional[List[Flag]]  # = dataclasses.field(default_factory=list)
     arguments: Optional[List[str]] = dataclasses.field(default_factory=list)
 
+    skip: bool = False
     stdin: Optional[Content] = None
+
     stdout: Optional[WritableContent] = None
     stderr: Optional[WritableContent] = None
 
@@ -280,7 +277,7 @@ class ToolCommand:
     yaml_test_file_path: Optional[Path] = None
     shell: bool = False
 
-    root_env: Optional[dict] = None
+    root_env: Optional[dict] = dataclasses.field(default_factory=dict)
     env: Optional[dict] = dataclasses.field(default_factory=dict)
     cwd: Optional[Path] = None
     root_cwd: Optional[Path] = None
@@ -293,14 +290,16 @@ class ToolCommand:
             "expected_return_code",
         )
 
-    def build_command(self, bin_path: Path):
+    def build_command(self, bin_path: Path) -> List[str]:
+        log.info(self.flags)
         command = (
-            [str(bin_path)]
-            + ([str(flag) for flag in self.flags] if self.flags else [])
+            # [str(bin_path)]
+            ([f for flag in self.flags for f in flag.build()] if self.flags else [])
             + self.arguments
         )
         log.info(f"\n{command}")
         return command
+        # return "".join(command)
 
     def __post_init__(self):
         if self.env or self.root_env:
@@ -308,21 +307,19 @@ class ToolCommand:
             log.debug(f"env: {env}")
             self.env = env
 
-        log.info(
+        log.debug(
             f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}"
         )
         if self.cwd or self.root_cwd:
             self.cwd = self.cwd or self.root_cwd
 
-        required_fields = [
-            self.expected_return_code,
-            self.expected_stdout,
-            self.expected_stderr,
-        ]
-        if not any([field is not None for field in required_fields]):
+        if not any(
+            [field is not None for field in self.Meta.least_one_required_fields]
+        ):
             raise ImproperlyConfigured(
                 f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided"
             )
+        # print(self)
 
     def run(self, bin_path: Optional[Path] = None):
         if self.skip:
@@ -335,12 +332,14 @@ class ToolCommand:
         command = self.build_command(bin_path)
 
         log.info(
-            f"\t\t* RUN: {' '.join(command)} {' < ' + str(self.stdin.file_path) if self.stdin else ''}"
+            f"\t\t* RUN: {self.binary_path} {' '.join(command)} "
+            f"{' < ' + str(self.stdin.file_path.resolve()) if self.stdin else ''}"
         )
-        log.info(f"\t\t* IN: {self.cwd}")
+        log.info(f"\t\t* In directory: {self.cwd}")
         # log.info(dict(os.environ))
         proc = subprocess.Popen(
-            command,
+            # executable=self.binary_path,
+            args=[str(self.binary_path)] + command,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -401,12 +400,12 @@ class ToolCommand:
 
 
 @dataclasses.dataclass
-class ToolCommandTests:
+class TestConfig:
     binary_path: Path
     default_parameters: Dict[str, Any]
     name: str
-    test: Optional[str]
-    tests: List[ToolCommand]
+    description: Optional[str]
+    tests: List[ConfigTestCase]
 
     yaml_test_file_path: Optional[Path] = None
 
@@ -429,7 +428,7 @@ class ToolCommandTests:
             log.warning(f"{COLORS['yellow']}SKIPPING{COLORS['reset']} {self.name}")
             return
         log.warning(f"{COLORS['green']}RUNNING{COLORS['reset']} {self.name}")
-        log.debug(f"{self.test}")
+        log.debug(f"{self.description}")
         for test in self.tests:
             if test.skip:
                 continue
@@ -440,10 +439,10 @@ class ToolCommandTests:
 
 
 def load_configs(
-    tests_config_dir: Optional[Union[Path, str]] = "",
-) -> Optional[List[ToolCommandTests]]:
+    # tests_config_dir: Optional[Union[Path, str]] = "",
+) -> Optional[List[TestConfig]]:
     global config
-    tests_config_dir: str = config.TEST_CONFIGS_DIR or "configs"
+    tests_config_dir = config.TEST_CONFIGS_DIR
     log.warning(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
 
@@ -453,28 +452,41 @@ def load_configs(
     # exclude_path: Optional[Path] = None
     # if exclude:
     #     exclude_path: Path = Path(exclude).resolve()
+    config_files_list: Union[list, tuple, Generator] = ()
+    if tests_config_dir.is_dir():
+        config_files_list = Path(tests_config_dir).rglob("*.yaml")
+    elif tests_config_dir.is_file():
+        # handle case if config dir path is pointed to file
+        config_files_list = [tests_config_dir]
 
-    for config_file in Path(tests_config_dir).rglob("*.yaml"):
+    for config_file in config_files_list:
+        log.info(f"Loading config from {config_file}")
         config_file = config_file.absolute()
         if exclude_path and config_file.is_relative_to(exclude_path):
             log.info(f"Excluding file {config_file}")
             continue
-        test_config = from_dict(
-            data_class=ToolCommandTests,
-            data=dict(
-                EnvYAML(
-                    str(config_file.absolute()),
-                )
-            ),
-            config=Config(
-                cast=[FlagTypeEnum, TreatableTypes],
-                type_hooks={
-                    Path: _path_resolver,
-                },
-            ),
-        )
-        test_config.yaml_test_file_path = os.path.join(tests_config_dir, config_file)
-        gathered_configs.append(test_config)
+        try:
+            test_config = from_dict(
+                data_class=TestConfig,
+                data=dict(
+                    EnvYAML(
+                        str(config_file.absolute()),
+                    )
+                ),
+                config=Config(
+                    cast=[FlagTypeEnum, TreatableTypes],
+                    type_hooks={
+                        Path: _path_resolver,
+                    },
+                ),
+            )
+            test_config.yaml_test_file_path = os.path.join(
+                tests_config_dir, config_file
+            )
+            gathered_configs.append(test_config)
+        except Exception as e:
+            log.error(f"Error loading config {config_file}: {e}")
+            raise e
 
     if not gathered_configs:
         raise ImproperlyConfigured("No configs found in {}".format(tests_config_dir))
@@ -489,7 +501,7 @@ def load_configs(
 
 
 class BaseTestCase(TestWithDiffs):
-    test: ToolCommand
+    test: ConfigTestCase
 
     def run_cases(self):
         for actual, expected, msg in self.test.run():
@@ -499,9 +511,9 @@ class BaseTestCase(TestWithDiffs):
 
 def build_test_params(
     tests_config_dir: Optional[Union[Path, str]] = "",
-) -> tuple[tuple[str, str], list[tuple[str, ToolCommand]]]:
+) -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
     loaded_configs = load_configs(
-        tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
+        # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
     )
     log.debug(f"Loaded configs: {loaded_configs}")
     return (

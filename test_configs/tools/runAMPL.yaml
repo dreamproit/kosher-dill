@@ -1,6 +1,6 @@
 skip: False
 name: runAMPL
-test: "\n\nTest cases for runAMPL tool"
+description: "\n\nTest cases for runAMPL tool"
 cwd: ../../dist/bin/
 binary_path: ../../dist/bin/runAMPL
 #show_results_diff: True
@@ -37,118 +37,49 @@ ALL_POSSIBLE_FLAGS:
 default_parameters: &DEFAULT_TEST_PARAMETERS
   skip: True
   cwd: ../../dist/bin/
-  log_file: logs/XMLextract.log
 
-  stdin:
+  stdin:  &STDIN
     <<: *BYTES_OUTPUT
-    directory: ../AMPL-test2
-    file_name: BILLS-116hr1500ih.xml
+    directory: &STDIN_DIR ../AMPL-test2
     treat_as: bytes
   stdout: &STDOUT
     <<: *JSON_OUTPUT
-    directory: &RESULT_DIR test_logs/ExtractXML/stdout/
+    directory: &RESULT_DIR tests_data/runAMPL/stdout/
   stderr: &STDERR
     <<: *TEXT_OUTPUT
-    directory: &ERR_DIR test_logs/ExtractXML/stderr/
+    directory: &ERR_DIR tests_data/runAMPL/stderr/
   expected_stdout: &EXPECTED_STDOUT
     <<: *JSON_OUTPUT
-    directory: &EXPECTED_RESULTS_DIR test_logs/ExtractXML/
+    directory: &EXPECTED_RESULTS_DIR tests_data/runAMPL/
   expected_return_code: 0
 
 tests:
   - <<: *DEFAULT_TEST_PARAMETERS
     skip: False
-    test: "* with no flags"
-    _file_name: &FILE_NAME 116hr1500ih.json
+    test: "* with default flags"
     flags:
+      - name: db
+        value: resultsdb
+      - name: base-db
+        value: xmldb
+      - name: branch
+        value: ampl_115hr5554enr
+      - name: alias
+        value: "/us/named/internal_revenue_code_of_1986 /us/usc/t26"
+#    arguments:
+#      - -alias /us/named/internal_revenue_code_of_1986
+    stdin:
+      <<: *STDIN
+      file_path: [*STDIN_DIR, ampl-115hr5554enr.json]
     stdout:
       <<: *STDOUT
-      file_name: 116hr1500ih.json
+      file_path: [*RESULT_DIR, ampl-115hr5554enr.json]
     stderr:
       <<: *STDERR
-      file_name: 116hr1500ih.error.log
+      file_path: [*ERR_DIR, ampl-115hr5554enr.error.log]
     expected_stdout:
-      <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih.json
-
-  - <<: *DEFAULT_TEST_PARAMETERS
-    test: "* with flag: -ag"
-    flags:
-      - name: ag
-    #      - name: amendments
-    #      - name: cg
-    #      - name: run-cimpl
-    #      - name: timeout
-    #        value: 2000
-    stdout:
-      <<: *STDOUT
-      file_name: 116hr1500ih-ag.json
-    stderr:
-      <<: *STDERR
-      file_name: 116hr1500ih-ag.error.log
-    expected_stdout:
-      <<: *EXPECTED_STDOUT
-      file_name:  116hr1500ih-ag.json
-
-  - <<: *DEFAULT_TEST_PARAMETERS
-    test: "* with flags: -ag, -amendments"
-    flags:
-      - name: ag
-      - name: amendments
-    #      - name: cg
-    #      - name: run-cimpl
-    #      - name: timeout
-    #        value: 2000
-    stdout:
-      <<: *STDOUT
-      file_name: 116hr1500ih-ag-amd.json
-    stderr:
-      <<: *STDERR
-      file_name: 116hr1500ih-ag-amd.error.log
-    expected_return_code: 0
-    expected_stdout:
-      <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih-ag-amd.json
-
-
-  - <<: *DEFAULT_TEST_PARAMETERS
-    test: "* with flags: -ag, -cg, -amendments"
-    flags:
-      - name: ag
-      - name: amendments
-      - name: cg
-    #      - name: run-cimpl
-    #      - name: timeout
-    #        value: 2000
-    stdout:
-      <<: *STDOUT
-      file_name: 116hr1500ih-ag-cg-amd.json
-    #      file_path: test_logs/ExtractXML/out/116hr1500ih-ag.json
-    stderr:
-      <<: *STDERR
-      file_name: 116hr1500ih-ag-cg-amd.error.log
-    expected_return_code: 0
-    expected_stdout:
-      <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih-ag-cg-amd.json
-
-  - <<: *DEFAULT_TEST_PARAMETERS
-    test: "* with flags: -ag, -cg, -amendments, -run-cimpl"
-    flags:
-      - name: ag
-      - name: amendments
-      - name: cg
-      - name: run-cimpl
-    #      - name: timeout
-    #        value: 2000
-    stdout:
-      <<: *STDOUT
-      file_name: 116hr1500ih-ag-cg-amd-run-cimpl.json
-    #      file_path: test_logs/ExtractXML/out/116hr1500ih-ag.json
-    stderr:
-      <<: *STDERR
-      file_name: 116hr1500ih-ag-cg-amd-run-cimpl.error.log
-    expected_return_code: 0
-    expected_stdout:
-      <<: *EXPECTED_STDOUT
-      file_name: 116hr1500ih-ag-cg-amd-run-cimpl.json
+#    expected_stdout:
+#      <<: *EXPECTED_STDOUT
+#      content: |
+#        {"a": Some text}
+#      file_path: [*EXPECTED_RESULTS_DIR, 116hr1500ih.json]
