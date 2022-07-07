@@ -15,6 +15,7 @@ envyaml = "^1.10.211231"
 environ-config = "^22.1.0"
 coverage = "^6.4.1"
 diff-match-patch = "^20200713"
+flake8 = "^4.0.1"
 
 [tool.poetry.dev-dependencies]
 
