@@ -14,13 +14,14 @@ from typing import List, Union, Dict, Any, Literal, Optional, Generator
 import yaml
 from dacite import from_dict, Config
 from envyaml import EnvYAML
-from yamlinclude import YamlIncludeConstructor
+
+# from yamlinclude.constructor import YamlIncludeConstructor
 
 from differ import TestWithDiffs
 
-YamlIncludeConstructor.add_to_loader_class(
-    loader_class=yaml.SafeLoader, base_dir="./test_configs"
-)
+# YamlIncludeConstructor.add_to_loader_class(
+#     loader_class=yaml.SafeLoader, base_dir="./test_configs"
+# )
 
 framework_config = configparser.ConfigParser(
     interpolation=configparser.ExtendedInterpolation()
