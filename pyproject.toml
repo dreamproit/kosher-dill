@@ -16,6 +16,7 @@ environ-config = "^22.1.0"
 coverage = "^6.4.1"
 diff-match-patch = "^20200713"
 flake8 = "^4.0.1"
+pytest = "^7.1.2"
 
 [tool.poetry.dev-dependencies]
 
