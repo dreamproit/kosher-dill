@@ -7,6 +7,7 @@ Requirements:
 
 * python version 3.10 or higher
 * `pip install poetry`
+* `poetry config virtualenvs.create false`
 * `poetry install`
 
 
