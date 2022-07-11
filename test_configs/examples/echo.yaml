@@ -1,0 +1,64 @@
+name: Test echo
+description: Test UNIX echo command
+skip: False
+shell: True
+binary_path: echo
+
+default_parameters: &DEFAULT_TEST_PARAMETERS
+#  cwd: ../../dist/bin/
+  log_file: logs/XMLextract.log
+
+
+default_parameters:
+  log_file: ${PWD}/echo.log
+tests:
+  - test: "* echo ${PWD}"
+    flags:
+      - name: n
+    arguments:
+      - ${PWD}
+    expected_return_code: 0
+    expected_stdout:
+      content: ${PWD}
+      treat_as: text
+
+  - test: "* echo ${USER}"
+    <<: *DEFAULT_TEST_PARAMETERS
+#    shell: True
+    arguments:
+      - $USER
+    #    flags:
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: bytes
+      #      encoding: utf-8
+      content: |
+        ${USER}
+
+
+  - test: "* echo $USER with n flag"
+#    shell: True
+    arguments:
+      - $USER
+    flags:
+      - name: n
+#        value: "$USER"
+    #      - name: a
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: bytes
+      #      encoding: utf-8
+      content: ${USER}
+  - test: "* echo `some text`"
+    arguments:
+      - "some text"
+    expected_return_code: 0
+    expected_stdout:
+      treat_as: bytes
+      #      encoding: utf-8
+      content: |
+        some text
+
+
+
+

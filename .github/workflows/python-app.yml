@@ -17,7 +17,8 @@ jobs:
 
     runs-on: ubuntu-latest
     env: 
-       TEST_CONFIGS_DIR: "test_configs/self_test/"
+       TEST_CONFIGS_DIR: "test_configs/examples/"
+       LOG_LEVEL: "INFO"
 
     steps:
     - uses: actions/checkout@v3
@@ -27,16 +28,12 @@ jobs:
         python-version: "3.10"
         
     - name: Poetry Install
-      # You may pin to the exact commit or the version.
-      # uses: knowsuchagency/poetry-install@7ed80d49910319d3e14ac262a5c81f681de48de0
-      uses: knowsuchagency/poetry-install@v2
-      with:
-        # Have poetry create a virtualenv for the project on installation.
-        create-virtualenv: false # optional, default is false
-    - name: Install dependencies
       run: |
-        poetry install
-        
+        pip install -U pip;
+        pip install poetry;
+        poetry config virtualenvs.create false;
+        poetry install;
+#
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names

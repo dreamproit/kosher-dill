@@ -1,0 +1,133 @@
+# Whole file will be converted into the ToolCommandTest class
+skip: False
+name: ExtractXML
+description: "\n\nTest cases for ExtractXML tool to extract data:"
+cwd: ../../dist/bin/
+binary_path: ../../dist/bin/XMLextract
+show_results_diff: True
+
+text_output: &AS_TEXT
+  treat_as: text
+bytes_output: &AS_BYTES
+  treat_as: bytes
+json_output: &AS_JSON
+  treat_as: json
+
+# Defining default test case structure and data
+default_parameters: &DEFAULT_TEST_PARAMETERS
+  cwd: ../../dist/bin/
+  log_file: logs/XMLextract.log
+  stdin:
+    file_path: [../XMLextract-tests/test_data/, BILLS-116hr1500ih.xml]
+    treat_as: bytes
+  stdout: &STDOUT
+    <<: *AS_JSON
+    directory: &RESULT_DIR tests_data/ExtractXML/stdout/
+  stderr: &STDERR
+    <<: *AS_JSON
+    directory: &ERR_DIR tests_data/ExtractXML/stderr/
+  expected_stdout: &EXPECTED_STDOUT
+    <<: *AS_JSON
+    directory: &EXPECTED_RESULTS_DIR tests_data/ExtractXML/
+  expected_return_code: 0
+
+tests:
+  # List of test cases. Each of them will be converted into a ToolCommand class
+  - <<: *DEFAULT_TEST_PARAMETERS
+    # DEFAULT_TEST_PARAMETERS will be used as a base for each test case
+    # Now you can redefine any of the parameters (from DEFAULT_TEST_PARAMETERS) or add new ones
+    test: "* with no flags"
+    flags:
+    stdout:
+      <<: *STDOUT
+      file_path: [*RESULT_DIR, 116hr1500ih.json]
+    stderr:
+      <<: *STDERR
+      file_path: [*ERR_DIR, 116hr1500ih.error.log]
+    expected_stdout:
+      <<: *EXPECTED_STDOUT
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih.json]
+
+  - <<: *DEFAULT_TEST_PARAMETERS
+    test: "* with flag: -ag"
+    flags:
+      - name: ag
+    #      - name: amendments
+    #      - name: cg
+    #      - name: run-cimpl
+      - name: timeout
+        value: "2000"
+        type: int
+    stdout:
+      <<: *STDOUT
+      file_path: [*RESULT_DIR, 116hr1500ih-ag.json]
+    stderr:
+      <<: *STDERR
+      file_path: [*ERR_DIR, 116hr1500ih-ag.error.log]
+    expected_return_code: 0
+    expected_stdout:
+      <<: *EXPECTED_STDOUT
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag.json]
+
+  - <<: *DEFAULT_TEST_PARAMETERS
+    test: "* with flags: -ag, -amendments"
+    flags:
+      - name: ag
+      - name: amendments
+    #      - name: cg
+    #      - name: run-cimpl
+    #      - name: timeout
+    #        value: 2000
+    stdout:
+      <<: *STDOUT
+      file_path: [*RESULT_DIR, 116hr1500ih-ag-amd.json]
+    stderr:
+      <<: *STDERR
+      file_path: [*ERR_DIR, 116hr1500ih-ag-amd.error.log]
+    expected_return_code: 0
+    expected_stdout:
+      <<: *EXPECTED_STDOUT
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag-amd.json]
+
+
+  - <<: *DEFAULT_TEST_PARAMETERS
+    test: "* with flags: -ag, -cg, -amendments"
+    flags:
+      - name: ag
+      - name: amendments
+      - name: cg
+    #      - name: run-cimpl
+    #      - name: timeout
+    #        value: 2000
+    stdout:
+      <<: *STDOUT
+      file_path: [*RESULT_DIR, 116hr1500ih-ag-cg-amd.json]
+    #      file_path: tests_data/ExtractXML/out/116hr1500ih-ag.json
+    stderr:
+      <<: *STDERR
+      file_path: [*ERR_DIR, 116hr1500ih-ag-cg-amd.error.log]
+    expected_return_code: 0
+    expected_stdout:
+      <<: *EXPECTED_STDOUT
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag-cg-amd.json]
+
+  - <<: *DEFAULT_TEST_PARAMETERS
+    test: "* with flags: -ag, -cg, -amendments, -run-cimpl"
+    flags:
+      - name: ag
+      - name: amendments
+      - name: cg
+      - name: run-cimpl
+    #      - name: timeout
+    #        value: 2000
+    stdout:
+      <<: *STDOUT
+      file_path: [*RESULT_DIR, 116hr1500ih-ag-cg-amd-run-cimpl.json]
+    #      file_path: tests_data/ExtractXML/out/116hr1500ih-ag.json
+    stderr:
+      <<: *STDERR
+      file_path: [*ERR_DIR, 116hr1500ih-ag-cg-amd-run-cimpl.error.log]
+    expected_return_code: 0
+    expected_stdout:
+      <<: *EXPECTED_STDOUT
+      file_path:  [*EXPECTED_RESULTS_DIR, 116hr1500ih-ag-cg-amd-run-cimpl.json]
