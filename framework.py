@@ -1,4 +1,4 @@
-import configparser
+import dataclasses
 import dataclasses
 import decimal
 import json
@@ -11,29 +11,17 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Union, Dict, Any, Literal, Optional, Generator
 
-import yaml
 from dacite import from_dict, Config
 from envyaml import EnvYAML
 
 # from yamlinclude.constructor import YamlIncludeConstructor
-
+from constants import config, log_format, COLORS
 from differ import TestWithDiffs
+
 
 # YamlIncludeConstructor.add_to_loader_class(
 #     loader_class=yaml.SafeLoader, base_dir="./test_configs"
 # )
-
-framework_config = configparser.ConfigParser(
-    interpolation=configparser.ExtendedInterpolation()
-)
-framework_config.read("tests.conf")
-
-
-@dataclasses.dataclass
-class EnvTestsConfig:
-    LOG_LEVEL: Optional[str] = logging.ERROR
-    TEST_CONFIGS_DIR: Optional[Path] = Path("./test_configs")
-    EXCLUDE_CONFIGS_DIR: Optional[Path] = ""
 
 
 def _path_resolver(value: Union[str, Path, list]) -> Path:
@@ -47,38 +35,18 @@ def _path_resolver(value: Union[str, Path, list]) -> Path:
     return path
 
 
-config = from_dict(
-    data_class=EnvTestsConfig,
-    data={k: v for k, v in os.environ.items() if hasattr(EnvTestsConfig, k)},
-    config=Config(
-        type_hooks={
-            Path: _path_resolver,
-        },
-    ),
-)
-
 log = logging.getLogger(__name__)
 log.setLevel(
     config.LOG_LEVEL
     # if config.LOG_LEVEL is not None
     # else framework_config["logging"].get("level", "WARNING")
 )
-log_format = framework_config["logging"].get(
-    "format", "%(asctime)s - %(name)s - [%(levelname)s] - %(message)s"
-)
+
 formatter = logging.Formatter(log_format)
 
 ch = logging.StreamHandler(sys.stdout)
 ch.setFormatter(formatter)
 log.addHandler(ch)
-
-
-def _fix_color_mapping(mapping):
-    return {k: v.replace("\\u001b[", "\u001b[") for k, v in dict(mapping).items()}
-
-
-COLORS = _fix_color_mapping(framework_config["changes.colors"])
-ACTION_COLOR_MAP = _fix_color_mapping(framework_config["changes.action_color"])
 
 
 class ImproperlyConfigured(Exception):
@@ -90,6 +58,13 @@ class FlagTypeEnum(Enum):
     PATH = "path"
     RESOLVED_PATH = "resolved_path"
     INT = "int"
+
+
+class TreatableTypes(Enum):
+    JSON = "json"
+    YAML = "yaml"
+    BYTES = "bytes"
+    TEXT = "text"
 
 
 @dataclasses.dataclass
@@ -113,25 +88,12 @@ class Flag:
                 # case _:
                 #     self.value = self.value
 
-    # def __str__(self):
-    #     if self.value or self.type:
-    #         return f"-{self.name} {self.value}"
-    #     else:
-    #         return f"-{self.name}"
-
     def build(self):
         log.info(f"Flag.build({self})")
         if self.value:  # or self.type:
             return f"-{self.name}", f"{self.value}"
         else:
             return (f"-{self.name}",)
-
-
-class TreatableTypes(Enum):
-    JSON = "json"
-    YAML = "yaml"
-    BYTES = "bytes"
-    TEXT = "text"
 
 
 @dataclasses.dataclass
@@ -203,6 +165,7 @@ class BaseContent:
 @dataclasses.dataclass
 class Content(BaseContent):
     content: Optional[Union[str, bytes, dict, list]]
+
     # directory: Optional[Path] = None
     # file_name: Optional[str] = None
 
@@ -292,7 +255,7 @@ class ConfigTestCase:
         )
 
     def build_command(self, bin_path: Path) -> List[str]:
-        log.info(self.flags)
+        log.debug(self.flags)
         command = (
             # [str(bin_path)]
             ([f for flag in self.flags for f in flag.build()] if self.flags else [])
@@ -349,9 +312,8 @@ class ConfigTestCase:
             cwd=self.cwd,
         )
         output, err = proc.communicate(stdin)
-        log.info("\t\tCommunicated")
-        log.info(f"STDOUT: {output}")
-        log.info(f"STDERR: {err}")
+        log.info(f"PROCESS STDOUT: {output}")
+        log.info(f"PROCESS STDERR: {err}")
 
         if self.stdout is None:
             self.stdout = WritableContent(content=output)
@@ -367,36 +329,30 @@ class ConfigTestCase:
             if self.stderr.content:
                 self.stderr.save()
 
+        if self.expected_stdout:
+            # Returned stdout is different than expected
+            yield (
+                self.stdout.treated,
+                self.expected_stdout.content,
+                f"{self.test} - Command stdout and expected output are different",
+            )
+        if self.expected_stderr:
+            # Returned stderr is different than expected
+            yield (
+                self.stderr.treated,
+                self.expected_stderr.content,
+                f"{self.test} - Stderr and expected error are different",
+            )
+
         if (
             self.expected_return_code is not None
             and self.expected_return_code != proc.returncode
         ):
-            # Return code is different than expected
+            # Returned return code is different than expected
             yield (
                 proc.returncode,
                 self.expected_return_code,
-                "Return code is different than expected",
-            )
-
-        # if self.test_file:
-        #     # Compare output with test file
-        #     yield (
-        #         self.stdout.treated,
-        #         self.test_file.content,
-        #         "Command stdout and expected test file are different",
-        #     )
-
-        if self.expected_stdout:
-            yield (
-                self.stdout.treated,
-                self.expected_stdout.content,
-                "Command stdout and expected output are different",
-            )
-        if self.expected_stderr:
-            yield (
-                self.stderr.treated,
-                self.expected_stderr.content,
-                "Stderr and expected error are different",
+                f"{self.test} - Return code is different than expected",
             )
 
 
@@ -442,7 +398,7 @@ class TestConfig:
 def load_configs(
     # tests_config_dir: Optional[Union[Path, str]] = "",
 ) -> Optional[List[TestConfig]]:
-    global config
+    # global config
     tests_config_dir = config.TEST_CONFIGS_DIR
     log.warning(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
@@ -507,7 +463,7 @@ class BaseTestCase(TestWithDiffs):
     def run_cases(self):
         for actual, expected, msg in self.test.run():
             log.debug(asdict(self.test))
-            self.assertEqual(expected, actual)
+            self.assertEqual(expected, actual, msg)
 
 
 def build_test_params(

@@ -17,7 +17,7 @@ jobs:
 
     runs-on: ubuntu-latest
     env: 
-       TEST_CONFIGS_DIR: "test_configs/self_test/"
+       TEST_CONFIGS_DIR: "test_configs/examples/"
        LOG_LEVEL: "INFO"
 
     steps:

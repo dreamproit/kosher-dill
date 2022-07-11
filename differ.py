@@ -6,6 +6,8 @@ import textwrap
 import dictdiffer
 import diff_match_patch
 
+from constants import COLORS as colors, ACTION_COLOR_MAP as color_map
+
 
 class DiffMatchPatch(diff_match_patch.diff_match_patch):
     def diff_prettyText(self, diffs):
@@ -181,20 +183,18 @@ class TestWithDiffs(unittest.TestCase):
 
     @staticmethod
     def diff_chunk_as_text(
-        chunk, colors: dict[str, str] = None, color_map: dict[str, str] = None
+        chunk,
+        prepend="",
+        # , colors: dict[str, str] = None, color_map: dict[str, str] = None
     ):
-        if not colors:
-            from framework import COLORS as colors
-        if not color_map:
-            from framework import ACTION_COLOR_MAP as color_map
         action, path, values = chunk
-        text = f"\n\n{color_map[action]} => {action.upper()}{colors['reset']}: "
+        text = f"{prepend}{color_map[action]} => {action.upper()}{colors['reset']}: "
         left, right = values if len(values) == 2 else (values[0], "<None>")
 
         if action == "change":
             text += f"""at key {path} values are different 
-            {colors['yellow']}BEFORE{colors['reset']}: {left} 
-            {colors['yellow']}AFTER{colors['reset']}: {right}"""
+            {prepend}{colors['yellow']}EXPECTED{colors['reset']}: {left} 
+            {prepend}{colors['yellow']}  ACTUAL{colors['reset']}: {right}"""
         elif action == "add":
             text += f"""extra values under {path} key on the right: {left}
             """
@@ -202,7 +202,7 @@ class TestWithDiffs(unittest.TestCase):
             text += f"""missing values under {path} key on the right: {left}"""
 
         if not text.startswith("\u001b[") and not text.endswith(colors["reset"]):
-            text = f"{text.strip()}{colors['reset']}"
+            text = f"{text.strip() if not prepend else text}{colors['reset']}\n"
 
         return text
 
@@ -214,6 +214,9 @@ class TestWithDiffs(unittest.TestCase):
         # print( '\n\nexpected\n%s' % expected )
         # print( '\n\nactual\n%s' % actual )
 
+        if msg:
+            msg = f"\n{colors['magenta']} {msg}{colors['reset']}\n"
+
         if (
             not isinstance(expected, (str, bytes))
             and not isinstance(actual, (str, bytes))
@@ -222,12 +225,13 @@ class TestWithDiffs(unittest.TestCase):
             diff_chunks = list(dictdiffer.diff(expected, actual, expand=True))
             diff = "\n".join(
                 [
-                    self.diff_chunk_as_text(chunk)  # , COLORS, ACTION_COLOR_MAP)
+                    self.diff_chunk_as_text(
+                        chunk, prepend="\t"
+                    )  # , COLORS, ACTION_COLOR_MAP)
                     for chunk in diff_chunks
                 ]
             )
-            # return self.fail(f"{msg}\n{diff}\n")
-            return super().assertEqual(expected, actual, msg)
+            self.fail(f"{msg}\n{diff}\n")
 
         if isinstance(expected, bytes):
             expected = expected.decode("utf-8")
@@ -236,7 +240,6 @@ class TestWithDiffs(unittest.TestCase):
 
         if expected != actual:
             diff_match = DiffMatchPatch()
-            print("DIFF MODE: ", self.diffMode)
             if self.diffMode == 0:
                 diffs = diff_match.diff_main(expected, actual)
 

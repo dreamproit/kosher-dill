@@ -24,7 +24,7 @@ default_parameters: &DEFAULT_TEST_PARAMETERS
     <<: *AS_JSON
     directory: &RESULT_DIR tests_data/ExtractXML/stdout/
   stderr: &STDERR
-    <<: *AS_TEXT
+    <<: *AS_JSON
     directory: &ERR_DIR tests_data/ExtractXML/stderr/
   expected_stdout: &EXPECTED_STDOUT
     <<: *AS_JSON
