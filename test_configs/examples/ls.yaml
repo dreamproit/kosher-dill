@@ -7,7 +7,7 @@ default_parameters:
 tests:
   #
   - test: "* with wrong path"
-    skip: True
+    skip: False
     arguments:
       - /ewwew/wewe/wew
     expected_return_code: 1
