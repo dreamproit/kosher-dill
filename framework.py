@@ -9,7 +9,18 @@ import sys
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import List, Union, Dict, Any, Literal, Optional, Generator
+from typing import (
+    List,
+    Union,
+    Dict,
+    Any,
+    Literal,
+    Optional,
+    Generator,
+    TypeVar,
+    Type,
+    Callable,
+)
 
 from dacite import from_dict, Config
 from envyaml import EnvYAML
@@ -102,6 +113,8 @@ class BaseContent:
     encoding: Literal["utf-8"] = "utf-8"
     treat_as: TreatableTypes = TreatableTypes.BYTES
     file_path: Optional[Union[list, Path]] = None
+    yaml_test_file_path: Optional[Path] = None
+    directory: Optional[Union[str, Path]] = None
 
     class Meta:
         least_one_required_fields: List[str] = ()
@@ -140,26 +153,36 @@ class BaseContent:
     @property
     def treated(self):
         data = self.content
-        match self.treat_as:
-            case TreatableTypes.BYTES:
-                if isinstance(self.content, str):
-                    log.info(
-                        f"<treated> Converting to bytes. Length: {len(self.content)}"
-                    )
-                    data = bytes(self.content, self.encoding)
-            case TreatableTypes.TEXT:
-                if isinstance(self.content, bytes):
-                    log.info(
-                        f"<treated> Converting to text. Length: {len(self.content)}"
-                    )
-                    data = str(self.content.decode(self.encoding))
-            case TreatableTypes.JSON:
-                log.info(f"<treated> Converting to json. Length: {len(self.content)}")
-                data = json.loads(self.content)
-            case TreatableTypes.YAML:
-                log.info(f"<treated> Converting to yaml. Length: {len(self.content)}")
-                data = EnvYAML(self.content)
-        return data
+        if data:
+            try:
+                match self.treat_as:
+                    case TreatableTypes.BYTES:
+                        if isinstance(self.content, str):
+                            log.info(
+                                f"<treated> Converting to bytes. Length: {len(self.content)}"
+                            )
+                            data = bytes(self.content, self.encoding)
+                    case TreatableTypes.TEXT:
+                        if isinstance(self.content, bytes):
+                            log.info(
+                                f"<treated> Converting to text. Length: {len(self.content)}"
+                            )
+                            data = str(self.content.decode(self.encoding))
+                    case TreatableTypes.JSON:
+                        log.info(
+                            f"<treated> Converting to json. Length: {len(self.content)}"
+                        )
+                        data = json.loads(self.content)
+                    case TreatableTypes.YAML:
+                        log.info(
+                            f"<treated> Converting to yaml. Length: {len(self.content)}"
+                        )
+                        data = EnvYAML(self.content)
+                return data
+            except Exception as e:
+                raise ImproperlyConfigured(
+                    f"Error '{e}' in {type(self)} treating content: {self.content[:100]}"
+                )
 
 
 @dataclasses.dataclass
@@ -183,7 +206,13 @@ class Content(BaseContent):
         super().__post_init__()
 
         if self.file_path:
-            self.content = self.file_path.read_text()
+            self.content = (
+                self.file_path.read_text()
+                if not self.yaml_test_file_path
+                else (
+                    self.yaml_test_file_path.parent.joinpath(self.file_path).read_text()
+                )
+            )
 
         match self.treat_as:
             case TreatableTypes.BYTES:
@@ -395,9 +424,22 @@ class TestConfig:
                 yield exp, out, err
 
 
-def load_configs(
-    # tests_config_dir: Optional[Union[Path, str]] = "",
-) -> Optional[List[TestConfig]]:
+def _content_resolver_wrapper(
+    cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
+) -> Callable[[Dict], Union[Content, WritableContent]]:
+    def content_resolver(content: Dict[Any, Any]) -> Union[Content, WritableContent]:
+        return from_dict(
+            data_class=cls,
+            data=dict(yaml_test_file_path=yaml_test_file_path, **content),
+            config=Config(
+                cast=[FlagTypeEnum, TreatableTypes],
+            ),
+        )
+
+    return content_resolver
+
+
+def load_configs() -> Optional[List[TestConfig]]:
     # global config
     tests_config_dir = config.TEST_CONFIGS_DIR
     log.warning(f"Loading configs from {tests_config_dir}")
@@ -426,20 +468,37 @@ def load_configs(
             test_config = from_dict(
                 data_class=TestConfig,
                 data=dict(
-                    EnvYAML(
-                        str(config_file.absolute()),
-                    )
+                    **dict(
+                        EnvYAML(
+                            str(config_file.absolute()),
+                        )
+                    ),
+                    yaml_test_file_path=Path(
+                        os.path.join(tests_config_dir, config_file)
+                    ),
                 ),
                 config=Config(
                     cast=[FlagTypeEnum, TreatableTypes],
                     type_hooks={
                         Path: _path_resolver,
+                        Content: _content_resolver_wrapper(
+                            Content,
+                            yaml_test_file_path=Path(
+                                os.path.join(tests_config_dir, config_file)
+                            ),
+                        ),
+                        WritableContent: _content_resolver_wrapper(
+                            cls=WritableContent,
+                            yaml_test_file_path=Path(
+                                os.path.join(tests_config_dir, config_file)
+                            ),
+                        ),
                     },
                 ),
             )
-            test_config.yaml_test_file_path = os.path.join(
-                tests_config_dir, config_file
-            )
+            # test_config.yaml_test_file_path = os.path.join(
+            #     tests_config_dir, config_file
+            # )
             gathered_configs.append(test_config)
         except Exception as e:
             log.error(f"Error loading config {config_file}: {e}")
