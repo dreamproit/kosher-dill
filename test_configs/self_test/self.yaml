@@ -7,24 +7,11 @@ default_parameters:
 env:
   LOG_LEVEL: ERROR
 tests:
-  #
-  - test: "* Run self test"
+  - test: "* Run self test by running '/test_configs/examples' tests."
     arguments:
       - "test_all.py"
-#    flags:
-#      - name: m
-#        value: unittest
     env:
       LOG_LEVEL: INFO
       TEST_CONFIGS_DIR: test_configs/examples
-#      EXCLUDE_CONFIGS_DIR: test_configs/self_test
-
-#    arguments:
-#      - a
+      USER: test_user
     expected_return_code: 0
-#    expected_stdout:
-#      content: ""
-
-
-
-
