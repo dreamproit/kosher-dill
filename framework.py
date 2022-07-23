@@ -113,6 +113,17 @@ class BaseContent:
         least_one_required_fields: List[str] = ()
         not_allowed_together_fields: List[str] = ()
 
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"content={self.content if len(self.content) > 1000 else self.content[:100]+'...'+self.content[-100:]}, "
+            f"encoding={self.encoding}, "
+            f"treat_as={self.treat_as}, "
+            f"file_path={self.file_path}, "
+            f"yaml_test_file_path={self.yaml_test_file_path}, "
+            f"directory={self.directory})"
+        )
+
     def __post_init__(self):
         self.validate()
 
@@ -120,9 +131,9 @@ class BaseContent:
             log.warning(f"file_path is a list, joining: {self.file_path}")
             self.file_path = Path(*self.file_path)
 
-        # if not self.file_path:
-        #     if self.directory and self.file_name:
-        #         self.file_path = self.directory / self.file_name
+        # if not self.file_path.is_absolute():
+        #     log.warning(f"file_path is not absolute, making it absolute: {self.file_path}")
+        #     self.file_path = self.file_path.resolve()
 
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
@@ -181,16 +192,13 @@ class BaseContent:
 
 @dataclasses.dataclass
 class Content(BaseContent):
-    content: Optional[Union[str, bytes, dict, list]]
-
-    # directory: Optional[Path] = None
-    # file_name: Optional[str] = None
+    content: Optional[Union[str, bytes, dict, list]] = None
 
     class Meta:
         least_one_required_fields = (
             "content",
             "file_path",
-        )  # "directory", "file_name")
+        )
         not_allowed_together_fields = ("content", "file_path")
 
     def __bool__(self):
@@ -335,8 +343,9 @@ class ConfigTestCase:
             cwd=self.cwd,
         )
         output, err = proc.communicate(stdin)
-        log.info(f"PROCESS STDOUT: {output}")
-        log.info(f"PROCESS STDERR: {err}")
+        shorten_string = lambda s: f'{s[:100]} \n...\n {s[-100:]}' if len(s) > 100 else s
+        log.info(f"PROCESS STDOUT: {shorten_string(output.decode())}")
+        log.info(f"PROCESS STDERR: {shorten_string(err.decode())}")
 
         if self.stdout is None:
             self.stdout = WritableContent(content=output)
