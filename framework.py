@@ -428,7 +428,7 @@ class TestConfig:
 
 
 def _content_resolver_wrapper(
-        cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path, **kwargs
+        cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
 ) -> Callable[[Dict], Union[Content, WritableContent]]:
     def content_resolver(content: Dict[Any, Any]) -> Union[Content, WritableContent]:
         return from_dict(
@@ -437,7 +437,7 @@ def _content_resolver_wrapper(
             config=Config(
                 cast=[FlagTypeEnum, TreatableTypes],
             ),
-            **kwargs
+            # **kwargs
         )
 
     return content_resolver
@@ -473,20 +473,6 @@ def load_configs() -> Optional[List[TestConfig]]:
                 "yaml_test_file_path": Path(os.path.join(tests_config_dir, config_file))
             }
             path_resolver = path_resolver_wrapper(**additional_data)
-            data_class_config = Config(
-                cast=[FlagTypeEnum, TreatableTypes],
-                type_hooks={
-                    Path: path_resolver,
-                    Content: _content_resolver_wrapper(
-                        Content,
-                        **additional_data,
-                    ),
-                    WritableContent: _content_resolver_wrapper(
-                        cls=WritableContent,
-                        **additional_data,
-                    ),
-                },
-            )
             test_config = from_dict(
                 data_class=TestConfig,
                 data=dict(
