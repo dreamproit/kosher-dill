@@ -9,7 +9,7 @@ from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
 from typing import (Any, Callable, Dict, Generator, List, Literal, Optional,
-                    Type, TypeVar, Union)
+                    Type, Union)
 from unittest.mock import ANY
 
 from dacite import Config, from_dict
@@ -19,20 +19,24 @@ from envyaml import EnvYAML
 from constants import COLORS, config, log_format
 from differ import TestWithDiffs
 
+
 # YamlIncludeConstructor.add_to_loader_class(
 #     loader_class=yaml.SafeLoader, base_dir="./test_configs"
 # )
 
 
-def _path_resolver(value: Union[str, Path, list]) -> Path:
-    path = None
-    if isinstance(value, str):
-        path = Path(value)
-    if isinstance(value, list):
-        path = Path(*value)
-    if str(path).startswith("."):
-        path = path.resolve()
-    return path
+def path_resolver_wrapper(yaml_test_file_path: Path) -> Callable[[Union[str, Path, list]], Path]:
+    def _path_resolver(value: Union[str, Path, list]) -> Path:
+        path = yaml_test_file_path.parent
+        if isinstance(value, str):
+            path = Path(value)
+        if isinstance(value, list):
+            path = Path(*value)
+        if str(path).startswith(".") and yaml_test_file_path:
+            path = yaml_test_file_path.joinpath(path)
+        return path.resolve()
+
+    return _path_resolver
 
 
 log = logging.getLogger(__name__)
@@ -109,6 +113,17 @@ class BaseContent:
         least_one_required_fields: List[str] = ()
         not_allowed_together_fields: List[str] = ()
 
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"content={self.content if len(self.content) > 1000 else self.content[:100]+'...'+self.content[-100:]}, "
+            f"encoding={self.encoding}, "
+            f"treat_as={self.treat_as}, "
+            f"file_path={self.file_path}, "
+            f"yaml_test_file_path={self.yaml_test_file_path}, "
+            f"directory={self.directory})"
+        )
+
     def __post_init__(self):
         self.validate()
 
@@ -116,21 +131,21 @@ class BaseContent:
             log.warning(f"file_path is a list, joining: {self.file_path}")
             self.file_path = Path(*self.file_path)
 
-        # if not self.file_path:
-        #     if self.directory and self.file_name:
-        #         self.file_path = self.directory / self.file_name
+        # if not self.file_path.is_absolute():
+        #     log.warning(f"file_path is not absolute, making it absolute: {self.file_path}")
+        #     self.file_path = self.file_path.resolve()
 
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
-            getattr(self, field) is not None
-            for field in self.Meta.least_one_required_fields
+                getattr(self, field) is not None
+                for field in self.Meta.least_one_required_fields
         ):
             raise ImproperlyConfigured(
                 f"At least one of {self.Meta.least_one_required_fields} must be provided"
             )
         if self.Meta.not_allowed_together_fields and all(
-            getattr(self, field) is not None
-            for field in self.Meta.not_allowed_together_fields
+                getattr(self, field) is not None
+                for field in self.Meta.not_allowed_together_fields
         ):
             raise ImproperlyConfigured(
                 f"Only one of {self.Meta.not_allowed_together_fields} must be set"
@@ -142,50 +157,48 @@ class BaseContent:
     @property
     def treated(self):
         data = self.content
-        if data:
-            try:
-                match self.treat_as:
-                    case TreatableTypes.BYTES:
-                        if isinstance(self.content, str):
-                            log.info(
-                                f"<treated> Converting to bytes. Length: {len(self.content)}"
-                            )
-                            data = bytes(self.content, self.encoding)
-                    case TreatableTypes.TEXT:
-                        if isinstance(self.content, bytes):
-                            log.info(
-                                f"<treated> Converting to text. Length: {len(self.content)}"
-                            )
-                            data = str(self.content.decode(self.encoding))
-                    case TreatableTypes.JSON:
+        if data is None:
+            return ''
+        try:
+            match self.treat_as:
+                case TreatableTypes.BYTES:
+                    if isinstance(self.content, str):
                         log.info(
-                            f"<treated> Converting to json. Length: {len(self.content)}"
+                            f"<treated> Converting to bytes. Length: {len(self.content)}"
                         )
-                        data = json.loads(self.content)
-                    case TreatableTypes.YAML:
+                        data = bytes(self.content, self.encoding)
+                case TreatableTypes.TEXT:
+                    if isinstance(self.content, bytes):
                         log.info(
-                            f"<treated> Converting to yaml. Length: {len(self.content)}"
+                            f"<treated> Converting to text. Length: {len(self.content)}"
                         )
-                        data = EnvYAML(self.content)
-                return data
-            except Exception as e:
-                raise ImproperlyConfigured(
-                    f"Error '{e}' in {type(self)} treating content: {self.content[:100]}"
-                )
+                        data = str(self.content.decode(self.encoding))
+                case TreatableTypes.JSON:
+                    log.info(
+                        f"<treated> Converting to json. Length: {len(self.content)}"
+                    )
+                    data = json.loads(self.content)
+                case TreatableTypes.YAML:
+                    log.info(
+                        f"<treated> Converting to yaml. Length: {len(self.content)}"
+                    )
+                    data = EnvYAML(self.content)
+            return data
+        except Exception as e:
+            raise ImproperlyConfigured(
+                f"Error '{e}' in {type(self)} treating content: {self.content[:100]}"
+            )
 
 
 @dataclasses.dataclass
 class Content(BaseContent):
-    content: Optional[Union[str, bytes, dict, list]]
-
-    # directory: Optional[Path] = None
-    # file_name: Optional[str] = None
+    content: Optional[Union[str, bytes, dict, list]] = None
 
     class Meta:
         least_one_required_fields = (
             "content",
             "file_path",
-        )  # "directory", "file_name")
+        )
         not_allowed_together_fields = ("content", "file_path")
 
     def __bool__(self):
@@ -276,8 +289,8 @@ class ConfigTestCase:
         log.debug(self.flags)
         command = (
             # [str(bin_path)]
-            ([f for flag in self.flags for f in flag.build()] if self.flags else [])
-            + self.arguments
+                ([f for flag in self.flags for f in flag.build()] if self.flags else [])
+                + self.arguments
         )
         log.info(f"\n{command}")
         return command
@@ -296,7 +309,7 @@ class ConfigTestCase:
             self.cwd = self.cwd or self.root_cwd
 
         if not any(
-            [field is not None for field in self.Meta.least_one_required_fields]
+                [field is not None for field in self.Meta.least_one_required_fields]
         ):
             raise ImproperlyConfigured(
                 f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided"
@@ -330,8 +343,9 @@ class ConfigTestCase:
             cwd=self.cwd,
         )
         output, err = proc.communicate(stdin)
-        log.info(f"PROCESS STDOUT: {output}")
-        log.info(f"PROCESS STDERR: {err}")
+        shorten_string = lambda s: f'{s[:100]} \n...\n {s[-100:]}' if len(s) > 100 else s
+        log.info(f"PROCESS STDOUT: {shorten_string(output.decode())}")
+        log.info(f"PROCESS STDERR: {shorten_string(err.decode())}")
 
         if self.stdout is None:
             self.stdout = WritableContent(content=output)
@@ -363,8 +377,8 @@ class ConfigTestCase:
             )
 
         if (
-            self.expected_return_code is not None
-            and self.expected_return_code != proc.returncode
+                self.expected_return_code is not None
+                and self.expected_return_code != proc.returncode
         ):
             # Returned return code is different than expected
             yield (
@@ -408,13 +422,13 @@ class TestConfig:
             if test.skip:
                 continue
             for exp, out, err in test.run(
-                self.binary_path,
+                    self.binary_path,
             ):
                 yield exp, out, err
 
 
 def _content_resolver_wrapper(
-    cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
+        cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
 ) -> Callable[[Dict], Union[Content, WritableContent]]:
     def content_resolver(content: Dict[Any, Any]) -> Union[Content, WritableContent]:
         return from_dict(
@@ -423,6 +437,7 @@ def _content_resolver_wrapper(
             config=Config(
                 cast=[FlagTypeEnum, TreatableTypes],
             ),
+            # **kwargs
         )
 
     return content_resolver
@@ -454,6 +469,10 @@ def load_configs() -> Optional[List[TestConfig]]:
             log.info(f"Excluding file {config_file}")
             continue
         try:
+            additional_data = {
+                "yaml_test_file_path": Path(os.path.join(tests_config_dir, config_file))
+            }
+            path_resolver = path_resolver_wrapper(**additional_data)
             test_config = from_dict(
                 data_class=TestConfig,
                 data=dict(
@@ -461,26 +480,19 @@ def load_configs() -> Optional[List[TestConfig]]:
                         EnvYAML(
                             str(config_file.absolute()),
                         )
-                    ),
-                    yaml_test_file_path=Path(
-                        os.path.join(tests_config_dir, config_file)
-                    ),
+                    ), **additional_data,
                 ),
                 config=Config(
                     cast=[FlagTypeEnum, TreatableTypes],
                     type_hooks={
-                        Path: _path_resolver,
+                        Path: path_resolver,
                         Content: _content_resolver_wrapper(
                             Content,
-                            yaml_test_file_path=Path(
-                                os.path.join(tests_config_dir, config_file)
-                            ),
+                            **additional_data,
                         ),
                         WritableContent: _content_resolver_wrapper(
                             cls=WritableContent,
-                            yaml_test_file_path=Path(
-                                os.path.join(tests_config_dir, config_file)
-                            ),
+                            **additional_data,
                         ),
                     },
                 ),
@@ -513,7 +525,7 @@ class BaseTestCase(TestWithDiffs):
             log.debug(asdict(self.test))
             self.replace_with_ANY(expected_result=expected, original='unittest.mock.ANY', replacement=ANY)
             self.assertEqual(expected, actual, msg)
-    
+
     def replace_with_ANY(self, expected_result: dict, original: str, replacement: object) -> dict:
         """Replace string 'unittest.mock.ANY' with unittest.mock.ANY object"""
         if not isinstance(expected_result, dict):
@@ -528,18 +540,17 @@ class BaseTestCase(TestWithDiffs):
         """Replace original value with replacement value in data dict."""
         if data == original:
             yield ()
-        if not isinstance(data, dict):
-            return
         if isinstance(data, dict):
             for key, val in data.items():
                 for subpath in self.replace_item(val, original, replacement):
                     data[key] = replacement
                     yield data
+        yield data
 
 
 
 def build_test_params(
-    tests_config_dir: Optional[Union[Path, str]] = "",
+        tests_config_dir: Optional[Union[Path, str]] = "",
 ) -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
     loaded_configs = load_configs(
         # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
