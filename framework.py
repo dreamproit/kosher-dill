@@ -518,7 +518,10 @@ class BaseTestCase(TestWithDiffs):
         """Replace string 'unittest.mock.ANY' with unittest.mock.ANY object"""
         if not isinstance(expected_result, dict):
             return expected_result
-        next(self.replace_item(data=expected_result, original=original, replacement=replacement))
+        try:
+            next(self.replace_item(data=expected_result, original=original, replacement=replacement))
+        except StopIteration as exc:
+            log.info('Nothing to replace in expected result.')
         return expected_result
 
     def replace_item(self, data: dict, original: str, replacement: object):
@@ -532,6 +535,7 @@ class BaseTestCase(TestWithDiffs):
                 for subpath in self.replace_item(val, original, replacement):
                     data[key] = replacement
                     yield data
+
 
 
 def build_test_params(
