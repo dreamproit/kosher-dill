@@ -540,13 +540,13 @@ class BaseTestCase(TestWithDiffs):
         """Replace original value with replacement value in data dict."""
         if data == original:
             yield ()
+        if not isinstance(data, dict):
+            return
         if isinstance(data, dict):
             for key, val in data.items():
                 for subpath in self.replace_item(val, original, replacement):
                     data[key] = replacement
                     yield data
-        yield data
-
 
 
 def build_test_params(
