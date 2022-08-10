@@ -406,7 +406,7 @@ class TestConfig:
         log.info(f"ToolCommandTests.cwd = {self.cwd}")
         for test in self.tests:
             # Bind binary path and default parameters to test
-            test.binary_path = self.binary_path
+            test.binary_path = test.binary_path or self.binary_path
             test.default_parameters = self.default_parameters
             test.yaml_test_file_path = self.yaml_test_file_path
             test.root_env = self.env
