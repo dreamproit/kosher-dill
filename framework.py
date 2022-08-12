@@ -34,7 +34,7 @@ def path_resolver_wrapper(yaml_test_file_path: Path) -> Callable[[Union[str, Pat
             path = Path(*value)
         if str(path).startswith(".") and yaml_test_file_path:
             path = yaml_test_file_path.joinpath(path)
-        return path.resolve()
+        return path
 
     return _path_resolver
 
@@ -302,8 +302,7 @@ class ConfigTestCase:
             log.debug(f"env: {env}")
             self.env = env
 
-        log.debug(
-            f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}"
+        log.debug(            f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}"
         )
         if self.cwd or self.root_cwd:
             self.cwd = self.cwd or self.root_cwd
@@ -410,7 +409,7 @@ class TestConfig:
             test.default_parameters = self.default_parameters
             test.yaml_test_file_path = self.yaml_test_file_path
             test.root_env = self.env
-            test.root_cwd = self.cwd
+            test.root_cwd = test.cwd or self.cwd
 
     def run_tests(self, verbose=False):
         if self.skip:
