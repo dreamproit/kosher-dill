@@ -33,7 +33,7 @@ def path_resolver_wrapper(yaml_test_file_path: Path) -> Callable[[Union[str, Pat
         if isinstance(value, list):
             path = Path(*value)
         if str(path).startswith(".") and yaml_test_file_path:
-            path = yaml_test_file_path.joinpath(path)
+            path = yaml_test_file_path.parent.joinpath(path)
         return path
 
     return _path_resolver
@@ -410,6 +410,7 @@ class TestConfig:
             test.yaml_test_file_path = self.yaml_test_file_path
             test.root_env = self.env
             test.root_cwd = test.cwd or self.cwd
+            test.cwd = test.cwd or self.yaml_test_file_path
 
     def run_tests(self, verbose=False):
         if self.skip:

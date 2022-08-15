@@ -27,17 +27,8 @@ tests:
     expected_stdout:
       treat_as: text
       content: |
-        README.adoc
-        __init__.py
-        constants.py
-        differ.py
-        framework.py
-        poetry.lock
-        pyproject.toml
-        test_all.py
-        test_configs
-        tests.conf
-        tests_data
+        echo.yaml
+        ls.yaml
 
 
 
