@@ -1,7 +1,7 @@
 name: Test ls
 description: Test UNIX ls command
 skip: False
-binary_path: ls
+binary_path: /bin/busybox
 default_parameters:
   log_file: ${PWD}/XMLextract.log
 tests:
@@ -9,7 +9,7 @@ tests:
   - test: "* with wrong path"
     skip: False
     arguments:
-      - /ewwew/wewe/wew
+      [ls, /ewwew/wewe/wew]
     expected_return_code: 1
     expected_stdout:
       content: ""
@@ -20,6 +20,8 @@ tests:
     flags:
 #      - name: l
 #      - name: a
+    arguments:
+      [ls]
     stdout:
       treat_as: text
 
