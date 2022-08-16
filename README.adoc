@@ -112,7 +112,7 @@ You can also add new fields to the block by adding some new key-value pairs - fo
 
 [source,bash]
 ----
-USER=example_test_user python -m unittest
+python -m unittest
 ----
 
 ### Running self tests
@@ -144,7 +144,7 @@ If tests passes it won't print anything until you set log level to `INFO` or low
 
 [source, bash]
 ----
-TEST_CONFIGS_DIR=test_configs/examples USER=example_test_user python -m unittest
+TEST_CONFIGS_DIR=test_configs/examples python -m unittest
 ....
 ----------------------------------------------------------------------
 Ran 4 tests in 0.033s
@@ -156,7 +156,7 @@ To see which tests were run and which failed you can use the following command:
 
 [source, bash]
 ----
-TEST_CONFIGS_DIR=test_configs/examples USER=example_test_user python -m unittest -vv
+TEST_CONFIGS_DIR=test_configs/examples python -m unittest -vv
 test_case (test_all.Test_0_Test_echo__echo_ddi_dev) ... ok
 test_case (test_all.Test_1_Test_echo__echo_ddi_dev_with_n_flag) ... ok
 test_case (test_all.Test_2_Test_ls__with_wrong_path) ... ok
@@ -173,14 +173,14 @@ OK
 
 [source,bash]
 ----
-LOG_LEVEL=INFO USER=example_test_user python -m unittest
+LOG_LEVEL=INFO python -m unittest
 ----
 
 === Unit tests verbose output
 
 [source,bash]
 ----
-USER=example_test_user python -m unittest -vv
+python -m unittest -vv
 ----
 
 == Writing new tests
