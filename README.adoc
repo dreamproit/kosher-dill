@@ -61,7 +61,50 @@ test: "${USER}"
 ----
 Here we will use `$USER` env var to get current username and assign it to `test` field of data structure defined in `yaml` file.
 
+== About named blocks in YAML files
+Some blocks inside YAML files can be named and then used by the reference name.
+This is very useful when you want to reuse some block of code in your YAML file without duplicating it.
 
+Example:
+[source,yaml]
+----
+    # This is a named block:
+text_output: &TEXT_OUTPUT
+  treat_as: text
+  stdout: true
+  directory: /tmp/text_output
+
+    # This is a block which uses the named block:
+another_output:
+  <<: *TEXT_OUTPUT
+  directory: /tmp/another_block
+  new_field: new_value
+----
+Here we have a named block `text_output` and `another_output` which are using the same block of code. And converting this part of YAML to python dictionary will result in:
+[source,python]
+----
+{
+"text_output":{
+  "treat_as": "text",
+  "stdout": True,
+  "directory": "/tmp/text_output"
+},
+"another_output": {
+  "treat_as": "text",
+  "stdout": True,
+  "directory": "/tmp/another_block",
+  "new_field": "new_value"
+}
+}
+----
+==== How does it work?
+`&TEXT_OUTPUT` is a reference to the named block written on the same line on the beginning of the block.
+
+`<<:*TEXT_OUTPUT` is a line to repeat all key-value pairs described in `TEXT_OUPUT` reference and put them into another block named `another_output`.
+
+You can overwrite any values in the block by adding some new values, like here we redefined the `directory` field.
+
+You can also add new fields to the block by adding some new key-value pairs - for example we added `new_field` field with value `new_value`.
 
 == Running the tests
 
