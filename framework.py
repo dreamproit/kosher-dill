@@ -157,8 +157,8 @@ class BaseContent:
     @property
     def treated(self):
         data = self.content
-        if data is None:
-            return ''
+        if data is None or data == "":
+            return ""
         try:
             match self.treat_as:
                 case TreatableTypes.BYTES:
@@ -175,7 +175,7 @@ class BaseContent:
                         data = str(self.content.decode(self.encoding))
                 case TreatableTypes.JSON:
                     log.info(
-                        f"<treated> Converting to json. Length: {len(self.content)}"
+                        f"<treated> Converting to json. Length: {len(self.content)}. File path: {self.file_path}"
                     )
                     data = json.loads(self.content)
                 case TreatableTypes.YAML:
@@ -556,14 +556,9 @@ def build_test_params(
         # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
     )
     log.debug(f"Loaded configs: {loaded_configs}")
-    return (
-        ("name", "test"),
-        [
-            (
-                f"{test_config.name}_{test.test}",
-                test,
-            )
-            for test_config in loaded_configs
-            for test in test_config.tests
-        ],
-    )
+    configs_to_run = (("name", "test"), [])
+    for test_config in loaded_configs:
+        for test in test_config.tests:
+            test_to_run = (f"{test_config.name}_{test.test}", test)
+            configs_to_run[1].append(test_to_run)
+    return configs_to_run
