@@ -556,14 +556,11 @@ def build_test_params(
         # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
     )
     log.debug(f"Loaded configs: {loaded_configs}")
-    return (
-        ("name", "test"),
-        [
-            (
-                f"{test_config.name}_{test.test}",
-                test,
-            )
-            for test_config in loaded_configs
-            for test in test_config.tests
-        ],
-    )
+    configs_to_run = [("name", "test")]
+    for test_config in loaded_configs:
+        config_tests = []
+        for test in test_config.tests:
+            test_to_run = (f"{test_config.name}_{test.test}", test)
+            config_tests.append(test_to_run)
+        configs_to_run.append(config_tests)
+    return configs_to_run
