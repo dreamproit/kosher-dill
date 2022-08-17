@@ -157,8 +157,8 @@ class BaseContent:
     @property
     def treated(self):
         data = self.content
-        if data is None:
-            return ''
+        if data is None or data == "":
+            return ""
         try:
             match self.treat_as:
                 case TreatableTypes.BYTES:
@@ -175,7 +175,7 @@ class BaseContent:
                         data = str(self.content.decode(self.encoding))
                 case TreatableTypes.JSON:
                     log.info(
-                        f"<treated> Converting to json. Length: {len(self.content)}"
+                        f"<treated> Converting to json. Length: {len(self.content)}. File path: {self.file_path}"
                     )
                     data = json.loads(self.content)
                 case TreatableTypes.YAML:
