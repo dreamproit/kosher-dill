@@ -1,0 +1,81 @@
+name: Test json path
+description: Test skipping json path defined in config file
+skip: False
+binary_path: echo
+default_parameters:
+  log_file: json_path.log
+
+tests:
+  - test: "skip simple path in root"
+    binary_path: echo
+    skip: False
+    arguments:
+      - -n
+      - "{\"name\": \"John\",  \"age\": 33, \"city\": \"Ontario\"}"
+    stdout:
+      treat_as: json
+    expected_stdout:
+      treat_as: json
+      ignore_fields:
+        - age
+        - city
+      content: "{\"name\": \"John\",  \"age\": 30, \"city\": \"New York\"}"
+
+  - test: "skip nested path in the root"
+    binary_path: echo
+    skip: False
+    arguments:
+      - -n
+      - "{\"name\": \"John\",  \"age\": 33, \"city\":  {\"name\": \"Ontario\"}}"
+    stdout:
+      treat_as: json
+    expected_stdout:
+      treat_as: json
+      ignore_fields:
+        - age
+        - city.name
+      content: "{\"name\": \"John\",  \"age\": 30, \"city\": {\"name\": \"New York\"}}\n"
+
+  - test: "skip item in list"
+    binary_path: echo
+    skip: False
+    arguments:
+      - -n
+      - "{\"name\": \"John\",  \"age\": 33, \"city\":  [{\"name\": \"Ontario\"}, {\"name\": \"Ohio\"}]}"
+    stdout:
+      treat_as: json
+    expected_stdout:
+      treat_as: json
+      ignore_fields:
+        - age
+        - city.0
+      content: "{\"name\": \"John\",  \"age\": 30, \"city\": [{\"name\": \"New York\"}, {\"name\": \"Ohio\"}]}\n"
+
+  - test: "skip nested item in list"
+    binary_path: echo
+    skip: False
+    arguments:
+      - -n
+      - "{\"name\": \"John\",  \"age\": 33, \"city\":  [{\"name\": \"Ontario\", \"value\": 100}, {\"name\": \"Ohio\"}]}"
+    stdout:
+      treat_as: json
+    expected_stdout:
+      treat_as: json
+      ignore_fields:
+        - age
+        - city.0.value
+        - city.0.name
+      content: "{\"name\": \"John\",  \"age\": 30, \"city\": [{\"name\": \"New York\", \"value\": 1}, {\"name\": \"Ohio\"}]}\n"
+
+#  - test: "skip not existing path"
+#    binary_path: echo
+#    arguments:
+##      - -n
+#      - "{\"name\": \"John\",  \"age\": 100000}"
+#    stdout:
+#      treat_as: json
+#    expected_stdout:
+#      treat_as: json
+#      ignore_fields:
+#        - ages
+#      content: "{\"name\": \"Johnny\", \"age\": 9999999999999999}"
