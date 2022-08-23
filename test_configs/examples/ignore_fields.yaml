@@ -1,0 +1,46 @@
+name: Test ignore fields
+description: Test UNIX mkdir command
+skip: False
+binary_path: mkdir
+default_parameters:
+  log_file: ${PWD}/XMLextract.log
+#
+text_output: &AS_TEXT
+  treat_as: text
+bytes_output: &AS_BYTES
+  treat_as: bytes
+json_output: &AS_JSON
+  treat_as: json
+#
+default_parameters: &DEFAULT_TEST_PARAMETERS
+  log_file: logs/XMLoader.log
+  stdin:
+    file_path: [../../tests_data/examples/stdin/, ignore_fields_actual.json]
+    treat_as: bytes
+  stdout: &STDOUT
+    <<: *AS_JSON
+  stderr: &STDERR
+    <<: *AS_TEXT
+    directory: &ERR_DIR ../../tests_data/examples/stderr/
+  expected_stdout: &EXPECTED_STDOUT
+    <<: *AS_JSON
+    directory: &EXPECTED_RESULTS_DIR ../../tests_data/examples/expected_stdout/   
+  expected_return_code: 0
+#
+tests:
+  - <<: *DEFAULT_TEST_PARAMETERS
+    test: "Opening actual result json file."
+    cwd: ./../../tests_data/examples/stdin/
+    binary_path: cat
+    skip: False
+    ignore_fields:
+      [
+        "meta.version",
+        "info.parser.updated_at",
+        "info.database.version"
+      ]
+    arguments:
+      - ignore_fields_actual.json
+    expected_stdout:
+      <<: *EXPECTED_STDOUT
+      file_path:  [*EXPECTED_RESULTS_DIR, ignore_fields_expected.json]

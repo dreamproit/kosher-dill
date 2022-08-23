@@ -30,8 +30,8 @@ tests:
       treat_as: text
       content: |
         echo.yaml
+        ignore_fields.yaml
         ls.yaml
-
 
 
 

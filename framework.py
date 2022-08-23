@@ -277,6 +277,7 @@ class ConfigTestCase:
     cwd: Optional[Path] = None
     root_cwd: Optional[Path] = None
     show_results_diff: bool = True
+    ignore_fields: Optional[List[str]] = dataclasses.field(default_factory=list)
 
     class Meta:
         least_one_required_fields = (
@@ -523,31 +524,31 @@ class BaseTestCase(TestWithDiffs):
     def run_cases(self):
         for actual, expected, msg in self.test.run():
             log.debug(asdict(self.test))
-            self.replace_with_ANY(expected_result=expected, original='unittest.mock.ANY', replacement=ANY)
+            self.replace_with_ANY(expected_result=expected, replacement=ANY)
             self.assertEqual(expected, actual, msg)
 
-    def replace_with_ANY(self, expected_result: dict, original: str, replacement: object) -> dict:
-        """Replace string 'unittest.mock.ANY' with unittest.mock.ANY object"""
+    def replace_with_ANY(self, expected_result: dict, replacement: object) -> dict:
+        """Replaces values in 'expected_resuld' dict with unittest.mock.ANY object."""
         if not isinstance(expected_result, dict):
             return expected_result
+        if not self.test.ignore_fields:
+            return expected_result
+        for ignore_field in self.test.ignore_fields:
+            self.adjust_dict(expected_result, ignore_field, replacement)
+
+    def adjust_dict(self, my_dict, key_string, value):
+        """Given `foo`, 'key1.key2.key3', 'something', set foo['key1']['key2']['key3'] = 'something'"""
+        here = my_dict
+        keys = key_string.split(".")
+        for key in keys[:-1]:
+            here = here.setdefault(key, {})
         try:
-            next(self.replace_item(data=expected_result, original=original, replacement=replacement))
-        except StopIteration as exc:
-            log.info('Nothing to replace in expected result.')
-        return expected_result
-
-    def replace_item(self, data: dict, original: str, replacement: object):
-        """Replace original value with replacement value in data dict."""
-        if data == original:
-            yield ()
-        if not isinstance(data, dict):
-            return
-        if isinstance(data, dict):
-            for key, val in data.items():
-                for subpath in self.replace_item(val, original, replacement):
-                    data[key] = replacement
-                    yield data
-
+            here[keys[-1]] = value
+        except TypeError as exc:
+            log.debug(f"ignore field: '{key_string}' not found in file: '{self.test.expected_stdout.file_path}'.")
+            raise ImproperlyConfigured(
+                f"{self} \n ignore_field: '{key_string}' not found in file: '{self.test.expected_stdout.file_path}'."
+            )
 
 def build_test_params(
         tests_config_dir: Optional[Union[Path, str]] = "",
