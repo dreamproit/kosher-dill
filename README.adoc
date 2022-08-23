@@ -376,6 +376,7 @@ expected_return_code: 0
 expected_stdout:
   treat_as: json
   file_path:  [/EXPECTED/RESULTS/DIR/, expected_test_stdout.json]
+ignore_fields: ["meta.version", "info.parser.updated_at", "info.database.version"]
 ----
 
 
@@ -445,6 +446,11 @@ expected_stdout:
 |cwd
 |Path
 |Path to the working directory where test should be run.
+|False
+
+|ignore_fields
+|List[str]
+|List of doted paths that need to be excluded from expected result.
 |False
 |===
 
