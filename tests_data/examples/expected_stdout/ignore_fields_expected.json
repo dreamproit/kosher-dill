@@ -1,0 +1,19 @@
+{
+    "meta": {
+        "version": "1.1.0",
+        "created_at": "8/16/2022"
+    },
+    "data": [
+        "value_1",
+        10,
+        true
+    ],
+    "info": {
+        "database": {
+            "version": "2.2.0"
+        },
+        "parser": {
+            "updated_at": "8/14/2022"
+        }
+    }
+}
