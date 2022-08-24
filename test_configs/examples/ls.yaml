@@ -30,6 +30,7 @@ tests:
       treat_as: text
       content: |
         echo.yaml
+        json_path.yaml
         ls.yaml
 
 
