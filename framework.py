@@ -249,10 +249,10 @@ class Content(BaseContent):
             intable_key = to_int(key)
             # if key in data:
             #     return data[key]
-            if (intable_key is not None and len(data) >= intable_key) or (
-                    local_data.get(intable_key) is not None
-            ):
-                return data[key]
+            if d and ((intable_key is not None and len(d) >= intable_key) or (
+                    d.get(intable_key) is not None
+            )):
+                return d[key]
             # try:
             #     if isinstance(d, dict):
             #         d = d[key]
