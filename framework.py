@@ -594,36 +594,7 @@ class BaseTestCase(TestWithDiffs):
         for actual, expected, msg in self.test.run():
             log.debug(asdict(self.test))
             log.info(f"expected={expected}, actual={actual}, msg={msg}")
-            # self.replace_with_ANY(expected_result=expected, original='unittest.mock.ANY', replacement=ANY)
             self.assertEqual(expected, actual, msg)
-
-    def replace_with_ANY(
-        self, expected_result: dict, original: str, replacement: object
-    ) -> dict:
-        """Replace string 'unittest.mock.ANY' with unittest.mock.ANY object"""
-        if not isinstance(expected_result, dict):
-            return expected_result
-        try:
-            next(
-                self.replace_item(
-                    data=expected_result, original=original, replacement=replacement
-                )
-            )
-        except StopIteration as exc:
-            log.info("Nothing to replace in expected result.")
-        return expected_result
-
-    def replace_item(self, data: dict, original: str, replacement: object):
-        """Replace original value with replacement value in data dict."""
-        if data == original:
-            yield ()
-        if not isinstance(data, dict):
-            return
-        if isinstance(data, dict):
-            for key, val in data.items():
-                for subpath in self.replace_item(val, original, replacement):
-                    data[key] = replacement
-                    yield data
 
 
 def build_test_params(

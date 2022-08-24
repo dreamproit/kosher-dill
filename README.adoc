@@ -489,6 +489,12 @@ Default values is `"bytes"`. Content will be quoted and converted to the appropr
 |Path to the file where content should be stored. If list passed, it will be converted to Path by joining elements of the list.
 If not defined content won't be stored in file (stdout/stderr).
 |False
+
+|ignore_fields
+|List[str]
+|List of doted paths that need to be excluded from expected result.
+|False
+
 |===
 
 ==== Flag data structure and passing flags to the binary
