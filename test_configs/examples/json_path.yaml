@@ -67,15 +67,17 @@ tests:
         - city.0.name
       content: "{\"name\": \"John\",  \"age\": 30, \"city\": [{\"name\": \"New York\", \"value\": 1}, {\"name\": \"Ohio\"}]}\n"
 
-#  - test: "skip not existing path"
-#    binary_path: echo
-#    arguments:
-##      - -n
-#      - "{\"name\": \"John\",  \"age\": 100000}"
-#    stdout:
-#      treat_as: json
-#    expected_stdout:
-#      treat_as: json
-#      ignore_fields:
-#        - ages
-#      content: "{\"name\": \"Johnny\", \"age\": 9999999999999999}"
+  - test: "skip not existing path"
+    binary_path: echo
+    arguments:
+#      - -n
+      - "{\"name\": \"John\",  \"age\": 100000}"
+    stdout:
+      treat_as: json
+    expected_stdout:
+      treat_as: json
+      ignore_fields:
+        - ages.0.0.name
+#        - names
+#        - age
+      content: "{\"name\": \"Johnny\", \"age\": 9999999999999999}"

@@ -8,16 +8,14 @@ import sys
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import (Any, Callable, Dict, Generator, List, Literal, Optional,
-                    Type, Union)
+from typing import Any, Callable, Dict, Generator, List, Literal, Optional, Type, Union
 from unittest.mock import ANY
-
-from dacite import Config, from_dict
-from envyaml import EnvYAML
 
 # from yamlinclude.constructor import YamlIncludeConstructor
 from constants import COLORS, config, log_format
+from dacite import Config, from_dict
 from differ import TestWithDiffs
+from envyaml import EnvYAML
 
 
 # YamlIncludeConstructor.add_to_loader_class(
@@ -25,7 +23,9 @@ from differ import TestWithDiffs
 # )
 
 
-def path_resolver_wrapper(yaml_test_file_path: Path) -> Callable[[Union[str, Path, list]], Path]:
+def path_resolver_wrapper(
+    yaml_test_file_path: Path,
+) -> Callable[[Union[str, Path, list]], Path]:
     def _path_resolver(value: Union[str, Path, list]) -> Path:
         path = yaml_test_file_path.parent
         if isinstance(value, str):
@@ -137,15 +137,15 @@ class BaseContent:
 
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
-                getattr(self, field) is not None
-                for field in self.Meta.least_one_required_fields
+            getattr(self, field) is not None
+            for field in self.Meta.least_one_required_fields
         ):
             raise ImproperlyConfigured(
                 f"At least one of {self.Meta.least_one_required_fields} must be provided"
             )
         if self.Meta.not_allowed_together_fields and all(
-                getattr(self, field) is not None
-                for field in self.Meta.not_allowed_together_fields
+            getattr(self, field) is not None
+            for field in self.Meta.not_allowed_together_fields
         ):
             raise ImproperlyConfigured(
                 f"Only one of {self.Meta.not_allowed_together_fields} must be set"
@@ -216,7 +216,10 @@ class Content(BaseContent):
                     self.yaml_test_file_path.parent.joinpath(self.file_path).read_text()
                 )
             )
-        if self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML) and self.ignore_fields is not None:
+        if (
+            self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML)
+            and self.ignore_fields is not None
+        ):
             raise ImproperlyConfigured(
                 f"ignore_fields can only be set when treating as JSON or YAML"
             )
@@ -243,19 +246,26 @@ class Content(BaseContent):
 
     def __replace_by_path(self, data, path):
         def get_item(d, key):
-            try:
-                if isinstance(d, dict):
-                    d = d[key]
-                elif isinstance(d, (list, tuple)):
-                    if key != '*':
-                        d = d[int(key)]
-                    else:
-                        log.info(f"<replace_by_path> key is '*', returning all items")
-                else:
-                    raise ValueError(f"{d} is not a dict or list")
-                return d
-            except (KeyError, IndexError) as e:
-                raise ValueError(f"{key} is not a valid key")
+            intable_key = to_int(key)
+            # if key in data:
+            #     return data[key]
+            if (intable_key is not None and len(data) >= intable_key) or (
+                    local_data.get(intable_key) is not None
+            ):
+                return data[key]
+            # try:
+            #     if isinstance(d, dict):
+            #         d = d[key]
+            #     elif isinstance(d, (list, tuple)):
+            #         if key != "*":
+            #             d = d[int(key)]
+            #         else:
+            #             log.info(f"<replace_by_path> key is '*', returning all items")
+            #     else:
+            #         raise ValueError(f"{d} is not a dict or list")
+            #     return d
+            # except (KeyError, IndexError) as e:
+            #     raise ValueError(f"{key} is not a valid key")
 
         def to_int(value):
             try:
@@ -271,21 +281,18 @@ class Content(BaseContent):
             _path.append(part)
             local_data = get_item(local_data, part)
 
-        last_key = path_parts[-1]
-        intable_key = to_int(last_key)
+        if local_data:
+            last_key = path_parts[-1]
+            intable_key = to_int(last_key)
 
-        if isinstance(local_data, (list, tuple)):
-            if intable_key is not None:
-                if len(local_data) <= int(last_key):
-                    raise ValueError(f"{'.'.join(_path)}.{last_key} is not a valid index")
-                local_data[intable_key] = ANY
-            # local_data[int(path_parts[-1])] = ANY
-        else:
             if last_key in local_data:
                 local_data[last_key] = ANY
-            elif local_data.get(intable_key) is not None:
-                local_data[to_int(last_key)] = ANY
-        return data
+            if (intable_key is not None and len(local_data) >= intable_key) or (
+                local_data.get(intable_key) is not None
+            ):
+                local_data[intable_key] = ANY
+
+            return data
 
     def __replace_json_paths(self, content):
         if self.ignore_fields is not None:
@@ -348,8 +355,8 @@ class ConfigTestCase:
         log.debug(self.flags)
         command = (
             # [str(bin_path)]
-                ([f for flag in self.flags for f in flag.build()] if self.flags else [])
-                + self.arguments
+            ([f for flag in self.flags for f in flag.build()] if self.flags else [])
+            + self.arguments
         )
         log.info(f"\n{command}")
         return command
@@ -361,13 +368,14 @@ class ConfigTestCase:
             log.debug(f"env: {env}")
             self.env = env
 
-        log.debug(f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}"
-                  )
+        log.debug(
+            f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}"
+        )
         if self.cwd or self.root_cwd:
             self.cwd = self.cwd or self.root_cwd
 
         if not any(
-                [field is not None for field in self.Meta.least_one_required_fields]
+            [field is not None for field in self.Meta.least_one_required_fields]
         ):
             raise ImproperlyConfigured(
                 f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided"
@@ -401,7 +409,9 @@ class ConfigTestCase:
             cwd=self.cwd,
         )
         output, err = proc.communicate(stdin)
-        shorten_string = lambda s: f'{s[:100]} \n...\n {s[-100:]}' if len(s) > 100 else s
+        shorten_string = (
+            lambda s: f"{s[:100]} \n...\n {s[-100:]}" if len(s) > 100 else s
+        )
         log.info(f"PROCESS STDOUT: {shorten_string(output.decode())}")
         log.info(f"PROCESS STDERR: {shorten_string(err.decode())}")
 
@@ -435,8 +445,8 @@ class ConfigTestCase:
             )
 
         if (
-                self.expected_return_code is not None
-                and self.expected_return_code != proc.returncode
+            self.expected_return_code is not None
+            and self.expected_return_code != proc.returncode
         ):
             # Returned return code is different than expected
             yield (
@@ -481,13 +491,13 @@ class TestConfig:
             if test.skip:
                 continue
             for exp, out, err in test.run(
-                    self.binary_path,
+                self.binary_path,
             ):
                 yield exp, out, err
 
 
 def _content_resolver_wrapper(
-        cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
+    cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
 ) -> Callable[[Dict], Union[Content, WritableContent]]:
     def content_resolver(content: Dict[Any, Any]) -> Union[Content, WritableContent]:
         return from_dict(
@@ -539,7 +549,8 @@ def load_configs() -> Optional[List[TestConfig]]:
                         EnvYAML(
                             str(config_file.absolute()),
                         )
-                    ), **additional_data,
+                    ),
+                    **additional_data,
                 ),
                 config=Config(
                     cast=[FlagTypeEnum, TreatableTypes],
@@ -586,14 +597,20 @@ class BaseTestCase(TestWithDiffs):
             # self.replace_with_ANY(expected_result=expected, original='unittest.mock.ANY', replacement=ANY)
             self.assertEqual(expected, actual, msg)
 
-    def replace_with_ANY(self, expected_result: dict, original: str, replacement: object) -> dict:
+    def replace_with_ANY(
+        self, expected_result: dict, original: str, replacement: object
+    ) -> dict:
         """Replace string 'unittest.mock.ANY' with unittest.mock.ANY object"""
         if not isinstance(expected_result, dict):
             return expected_result
         try:
-            next(self.replace_item(data=expected_result, original=original, replacement=replacement))
+            next(
+                self.replace_item(
+                    data=expected_result, original=original, replacement=replacement
+                )
+            )
         except StopIteration as exc:
-            log.info('Nothing to replace in expected result.')
+            log.info("Nothing to replace in expected result.")
         return expected_result
 
     def replace_item(self, data: dict, original: str, replacement: object):
@@ -610,7 +627,7 @@ class BaseTestCase(TestWithDiffs):
 
 
 def build_test_params(
-        tests_config_dir: Optional[Union[Path, str]] = "",
+    tests_config_dir: Optional[Union[Path, str]] = "",
 ) -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
     loaded_configs = load_configs(
         # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
