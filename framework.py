@@ -412,10 +412,10 @@ class ConfigTestCase:
         )
         output, err = proc.communicate(stdin)
         shorten_string = (
-            lambda s: f"{s[:100]} \n...\n {s[-100:]}" if len(s) > 100 else s
+            lambda s, ln: f"{s[:ln]} \n...\n {s[-ln:]}" if len(s) > ln else s
         )
-        log.info(f"PROCESS STDOUT: {shorten_string(output.decode())}")
-        log.info(f"PROCESS STDERR: {shorten_string(err.decode())}")
+        log.info(f"PROCESS STDOUT: {shorten_string(output.decode(), 200)}")
+        log.info(f"PROCESS STDERR: {shorten_string(err.decode(), 200)}")
 
         if self.stdout is None:
             self.stdout = WritableContent(content=output)
@@ -595,7 +595,8 @@ class BaseTestCase(TestWithDiffs):
     def run_cases(self):
         for actual, expected, msg in self.test.run():
             log.debug(asdict(self.test))
-            log.info(f"expected={expected}, actual={actual}, msg={msg}")
+            log.debug(f"expected={expected}, actual={actual}")
+            log.info(f"msg={msg}")
             self.assertEqual(expected, actual, msg)
 
 
