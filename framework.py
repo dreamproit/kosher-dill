@@ -8,15 +8,16 @@ import sys
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, List, Literal, Optional, Type, Union
+from typing import (Any, Callable, Dict, Generator, List, Literal, Optional,
+                    Type, Union)
 from unittest.mock import ANY
+
+from dacite import Config, from_dict
+from envyaml import EnvYAML
 
 # from yamlinclude.constructor import YamlIncludeConstructor
 from constants import COLORS, config, log_format
-from dacite import Config, from_dict
 from differ import TestWithDiffs
-from envyaml import EnvYAML
-
 
 # YamlIncludeConstructor.add_to_loader_class(
 #     loader_class=yaml.SafeLoader, base_dir="./test_configs"
@@ -249,23 +250,24 @@ class Content(BaseContent):
             intable_key = to_int(key)
             # if key in data:
             #     return data[key]
-            if d and ((intable_key is not None and len(d) >= intable_key) or (
-                    d.get(intable_key) is not None
-            )):
-                return d[key]
-            # try:
-            #     if isinstance(d, dict):
-            #         d = d[key]
-            #     elif isinstance(d, (list, tuple)):
-            #         if key != "*":
-            #             d = d[int(key)]
-            #         else:
-            #             log.info(f"<replace_by_path> key is '*', returning all items")
-            #     else:
-            #         raise ValueError(f"{d} is not a dict or list")
-            #     return d
-            # except (KeyError, IndexError) as e:
-            #     raise ValueError(f"{key} is not a valid key")
+            # if d and ((intable_key is not None and len(d) >= intable_key) or (
+            #         d.get(intable_key) is not None
+            # )):
+            #     return d[key]
+            try:
+                if isinstance(d, dict):
+                    d = d[key]
+                elif isinstance(d, (list, tuple)):
+                    if key != "*":
+                        d = d[int(key)]
+                    else:
+                        log.info(f"<replace_by_path> key is '*', returning all items")
+                else:
+                    log.warning(f"{d} is not a dict or list")
+                return d
+            except (KeyError, IndexError) as e:
+                # Now we making a warning about missing key to ignore.
+                log.warning(f"ignore field: '{key}' not found in expected result.")
 
         def to_int(value):
             try:
