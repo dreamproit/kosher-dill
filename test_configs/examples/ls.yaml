@@ -32,7 +32,7 @@ tests:
         echo.yaml
         json_path.yaml
         ls.yaml
-
+        sanity_checks.yaml
 
 
 
