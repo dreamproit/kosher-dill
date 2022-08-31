@@ -13,12 +13,12 @@ bytes_output: &AS_BYTES
   treat_as: bytes
 json_output: &AS_JSON
   treat_as: json
-#
-stdin_folder: &STDIN_FOLDER /apps/kosher-dill/tests_data/examples/stdin
-stdout_folder: &STDOUT_FOLDER /apps/kosher-dill/tests_data/examples/stdout
-stderr_folder: &STDERR_FOLDER /apps/kosher-dill/tests_data/examples/stderr
-expected_stdout_folder: &EXPECTED_STDOUT_FOLDER /apps/kosher-dill/tests_data/examples/expected_stdout
-expected_stderr_folder: &EXPECTED_STDERR_FOLDER /apps/kosher-dill/tests_data/examples/expected_stderr
+#../../tests_data/examples/
+stdin_folder: &STDIN_FOLDER ../../tests_data/examples/stdin
+stdout_folder: &STDOUT_FOLDER ../../tests_data/examples/stdout
+stderr_folder: &STDERR_FOLDER ../../tests_data/examples/stderr
+expected_stdout_folder: &EXPECTED_STDOUT_FOLDER ../../tests_data/examples/expected_stdout
+expected_stderr_folder: &EXPECTED_STDERR_FOLDER ../../tests_data/examples/expected_stderr
 #
 tests:
 #   # Pair of test to check for duplication in test names.
