@@ -50,6 +50,7 @@ deps =
 commands =
     flake8 . --count --statistics
     poetry install
+    coverage erase
 #    coverage run -m pytest
     coverage run -m unittest -vv
     coverage xml
