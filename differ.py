@@ -9,6 +9,46 @@ from constants import COLORS as colors, ACTION_COLOR_MAP as color_map
 
 
 class DiffMatchPatch(diff_match_patch.diff_match_patch):
+
+    def parse(self, sign, diffs, index, cut_next_new_line, results_diff):
+        operations = (self.DIFF_INSERT, self.DIFF_DELETE)
+        op, text = diffs[index]
+        if index < len(diffs) - 1:
+            next_op, next_text = diffs[index + 1]
+        else:
+            next_op, next_text = (0, "")
+
+        if text:
+            new = text
+        else:
+            return ""
+
+        new = textwrap.indent("%s" % new, sign, lambda line: True)
+
+        # force the diff change to show up on a new line for highlighting
+        if len(results_diff) > 0:
+            new = "\n" + new
+
+        if new[-1] == "\n":
+
+            if (
+                    op == self.DIFF_INSERT
+                    and next_text
+                    and new[-1] == "\n"
+                    and next_text[0] == "\n"
+            ):
+                cut_next_new_line[0] = True
+
+                # Avoids a double plus sign showing up when the diff has the element (1, '\n')
+                if len(text) > 1:
+                    new = new + "%s\n" % sign
+
+        elif next_op not in operations and next_text and next_text[0] != "\n":
+            new = new + "\n"
+
+        # print('new2:', new.encode( 'ascii' ))
+        return new
+
     def diff_prettyText(self, diffs):
         """Convert a diff array into a pretty Text report.
         Args:
@@ -18,57 +58,14 @@ class DiffMatchPatch(diff_match_patch.diff_match_patch):
         """
         results_diff = []
         cut_next_new_line = [False]
-        # print('\ndiffs:\n%s\n' % diffs)
-
-        operations = (self.DIFF_INSERT, self.DIFF_DELETE)
-
-        def parse(sign):
-            # print('new1:', text.encode( 'ascii' ))
-
-            if text:
-                new = text
-
-            else:
-                return ""
-
-            new = textwrap.indent("%s" % new, sign, lambda line: True)
-
-            # force the diff change to show up on a new line for highlighting
-            if len(results_diff) > 0:
-                new = "\n" + new
-
-            if new[-1] == "\n":
-
-                if (
-                        op == self.DIFF_INSERT
-                        and next_text
-                        and new[-1] == "\n"
-                        and next_text[0] == "\n"
-                ):
-                    cut_next_new_line[0] = True
-
-                    # Avoids a double plus sign showing up when the diff has the element (1, '\n')
-                    if len(text) > 1:
-                        new = new + "%s\n" % sign
-
-            elif next_op not in operations and next_text and next_text[0] != "\n":
-                new = new + "\n"
-
-            # print('new2:', new.encode( 'ascii' ))
-            return new
 
         for index in range(len(diffs)):
             op, text = diffs[index]
-            if index < len(diffs) - 1:
-                next_op, next_text = diffs[index + 1]
-            else:
-                next_op, next_text = (0, "")
-
             if op == self.DIFF_INSERT:
-                results_diff.append(parse("+ "))
+                results_diff.append(self.parse("+ ", diffs, index, cut_next_new_line, results_diff))
 
             elif op == self.DIFF_DELETE:
-                results_diff.append(parse("- "))
+                results_diff.append(self.parse("- ", diffs, index, cut_next_new_line, results_diff))
 
             elif op == self.DIFF_EQUAL:
                 # print('new3:', text.encode( 'ascii' ))
