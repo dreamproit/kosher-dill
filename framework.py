@@ -86,7 +86,7 @@ class Flag:
                 # case FlagTypeEnum.INT:
                 #     self.value = int(self.value)
                 case FlagTypeEnum.STR:
-                    self.value = self.value
+                    self.value = str(self.value)
                 case FlagTypeEnum.PATH:
                     self.value = Path(self.value)
                 case FlagTypeEnum.RESOLVED_PATH:
