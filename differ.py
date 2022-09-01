@@ -261,4 +261,3 @@ class TestWithDiffs(unittest.TestCase):
                 msg = "The strings does not match...\n"
 
             self.fail(msg + diff_match.diff_prettyText(diffs))
-
