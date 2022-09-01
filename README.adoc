@@ -1,3 +1,13 @@
+https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=coverage[Coverage]]
+https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=code_smells[Code
+Smells]]
+https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=sqale_rating[Maintainability
+Rating]]
+https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=security_rating[Security
+Rating]]
+https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=bugs[Bugs]]
+https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=vulnerabilities[Vulnerabilities]]
+
 :toc:
 
 = Testing framework for console tools
