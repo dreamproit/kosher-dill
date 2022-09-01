@@ -10,17 +10,48 @@ dictdiffer = "^0.9.0"
 parameterized = "^0.8.1"
 pyaml-env = "^1.1.5"
 dacite = "^1.6.0"
-black = {extras = ["d"], version = "^22.6.0"}
 envyaml = "^1.10.211231"
 environ-config = "^22.1.0"
 coverage = "^6.4.1"
 diff-match-patch = "^20200713"
-flake8 = "^4.0.1"
 pytest = "^7.1.2"
 yaml-include = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
+black = {extras = ["d"], version = "^22.6.0"}
+flake8 = "^5.0.4"
+Flake8-pyproject = "^1.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+ignore = ['E231', 'E241', 'W503']
+max-line-length = 120
+count = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py310
+skipsdist = True
+[testenv]
+setenv =
+    USER = root
+    PWD = .
+deps =
+    pytest
+    coverage
+    poetry
+commands =
+    poetry install --no-dev
+    coverage run -m pytest
+    coverage xml
+[coverage:run]
+relative_files = True
+branch = True
+"""
+
+
+

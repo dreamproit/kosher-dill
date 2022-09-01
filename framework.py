@@ -115,9 +115,10 @@ class BaseContent:
         not_allowed_together_fields: List[str] = ()
 
     def __str__(self):
+        shorten_content = self.content if len(self.content) > 1000 else self.content[:100] + '...' + self.content[-100:]
         return (
             f"{self.__class__.__name__}("
-            f"content={self.content if len(self.content) > 1000 else self.content[:100] + '...' + self.content[-100:]}, "
+            f"content={shorten_content}, "
             f"encoding={self.encoding}, "
             f"treat_as={self.treat_as}, "
             f"file_path={self.file_path}, "
@@ -131,10 +132,6 @@ class BaseContent:
         if isinstance(self.file_path, (list, tuple)):
             log.warning(f"file_path is a list, joining: {self.file_path}")
             self.file_path = Path(*self.file_path)
-
-        # if not self.file_path.is_absolute():
-        #     log.warning(f"file_path is not absolute, making it absolute: {self.file_path}")
-        #     self.file_path = self.file_path.resolve()
 
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
@@ -222,7 +219,7 @@ class Content(BaseContent):
             and self.ignore_fields is not None
         ):
             raise ImproperlyConfigured(
-                f"ignore_fields can only be set when treating as JSON or YAML"
+                "ignore_fields can only be set when treating as JSON or YAML"
             )
 
         match self.treat_as:
@@ -247,7 +244,7 @@ class Content(BaseContent):
 
     def __replace_by_path(self, data, path):
         def get_item(d, key):
-            intable_key = to_int(key)
+            # intable_key = to_int(key)
             # if key in data:
             #     return data[key]
             # if d and ((intable_key is not None and len(d) >= intable_key) or (
@@ -261,18 +258,18 @@ class Content(BaseContent):
                     if key != "*":
                         d = d[int(key)]
                     else:
-                        log.info(f"<replace_by_path> key is '*', returning all items")
+                        log.info("<replace_by_path> key is '*', returning all items")
                 else:
                     log.warning(f"{d} is not a dict or list")
                 return d
-            except (KeyError, IndexError) as e:
+            except (KeyError, IndexError):
                 # Now we making a warning about missing key to ignore.
                 log.warning(f"ignore field: '{key}' not found in expected result.")
 
         def to_int(value):
             try:
                 return int(value)
-            except ValueError as e:
+            except ValueError:
                 return None
 
         _path = []
@@ -608,7 +605,8 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
                 config_test.expected_stdout,
             ):
                 raise ImproperlyConfigured(
-                    f"Test '{config_test.test}' stdout content type: '{config_test.stdout.treat_as.name}' does not match "
+                    f"Test '{config_test.test}' stdout content type: "
+                    f"'{config_test.stdout.treat_as.name}' does not match "
                     f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'."
                 )
         if config_test.stderr and config_test.expected_stderr:
@@ -617,13 +615,14 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
                 config_test.expected_stderr,
             ):
                 raise ImproperlyConfigured(
-                    f"Test '{config_test.test}' stderr content type: '{config_test.stderr.treat_as.name}' does not match "
+                    f"Test '{config_test.test}' stderr content type: "
+                    f"'{config_test.stderr.treat_as.name}' does not match "
                     f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'."
                 )
     return active_config
 
 
-def check_output_content_type(actual_output: Content, expected_output: Content) -> bool:
+def check_output_content_type(actual_output: Union[Content, WritableContent], expected_output: Content) -> bool:
     """Check .treat_as property of the outputs and raise exception if type doesn't match."""
     return actual_output.treat_as.value == expected_output.treat_as.value
 
@@ -634,7 +633,8 @@ def validate_test_names_uniqueness(active_config: TestConfig) -> TestConfig:
     names_count_map = {name: test_names.count(name) for name in test_names}
     if len(test_names) != len(names_count_map):
         raise ImproperlyConfigured(
-            f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' already exists in yaml file."
+            f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' "
+            "already exists in yaml file."
         )
     return active_config
 
