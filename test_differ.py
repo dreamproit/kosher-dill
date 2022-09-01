@@ -24,7 +24,7 @@ class DummyTest(TestWithDiffs):
         with self.assertRaises(AssertionError) as error:
             self.assertEqual(expected, actual)
 
-        print("\nerror.exception\n%s\n" % str(error.exception))
+        # print("\nerror.exception\n%s\n" % str(error.exception))
         self.assertEqual(
             "The strings does not match...\n"
             "  1. Duplicated target language name defined in your grammar on: \n"
@@ -65,7 +65,7 @@ class DummyTest(TestWithDiffs):
         with self.assertRaises(AssertionError) as error:
             self.assertEqual(expected, actual)
 
-        print("\nerror.exception\n%s\n" % str(error.exception))
+        # print("\nerror.exception\n%s\n" % str(error.exception))
         self.assertEqual(
             "The strings does not match...\n"
             "  1. Duplicated target language name defined in your grammar on: \n"
@@ -100,7 +100,7 @@ class DummyTest(TestWithDiffs):
         with self.assertRaises(AssertionError) as error:
             self.assertEqual(expected, actual)
 
-        print("\nerror.exception\n%s\n" % str(error.exception))
+        # print("\nerror.exception\n%s\n" % str(error.exception))
         self.assertEqual(
             "The strings does not match...\n"
             "- 1. Duplicated target language name defined in your grammar on: "
