@@ -593,10 +593,10 @@ def load_configs() -> Optional[List[TestConfig]]:
 
 def validate_configs(active_congfigs: list[TestConfig]) -> list[TestConfig]:
     """Validate TestConfig to make sure it us properly configured."""
-    validate_test_names_uniqueness(active_congfigs)
     validate_test_file_paths_uniqueness(active_congfigs)
     for active_config in active_congfigs:
         validate_output_content_type(active_config)
+        validate_test_names_uniqueness(active_config)
 
 
 def validate_output_content_type(active_config: TestConfig) -> TestConfig:
@@ -625,28 +625,23 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
 
 def check_output_content_type(actual_output: Content, expected_output: Content) -> bool:
     """Check .treat_as property of the outputs and raise exception if type doesn't match."""
-    return actual_output.treat_as.name == expected_output.treat_as.name
+    return actual_output.treat_as.value == expected_output.treat_as.value
 
 
-def validate_test_names_uniqueness(active_congfigs: list[TestConfig]) -> list[TestConfig]:
+def validate_test_names_uniqueness(active_config: TestConfig) -> TestConfig:
     """Check test names for uniqueness."""
-    all_test_names = set()
-    for active_config in active_congfigs:
-        for config_test in active_config.tests:
-            test_name = config_test.test
-            if test_name in all_test_names:
-                raise ImproperlyConfigured(
-                    f"Test with name: '{test_name}' already exists in yaml file."
-                )
-            else:
-                all_test_names.add(test_name)
-    return active_congfigs
+    test_names = [test.test for test in active_config.tests]
+    names_count_map = {name: test_names.count(name) for name in test_names}
+    if len(test_names) != len(names_count_map):
+        raise ImproperlyConfigured(
+            f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' already exists in yaml file."
+        )
+    return active_config
 
 
 def validate_test_file_paths_uniqueness(active_congfigs: list[TestConfig]) -> list[TestConfig]:
     """Check test stdout, stderr 'file_path' for uniqueness."""
     ALL_CONFIGS_FILE_PATHS = {
-        'stdin': set(),
         'stdout': set(),
         'stderr': set(),
         'expected_stdout': set(),
@@ -655,16 +650,14 @@ def validate_test_file_paths_uniqueness(active_congfigs: list[TestConfig]) -> li
     for active_config in active_congfigs:
         for config_test in active_config.tests:
             for field in ALL_CONFIGS_FILE_PATHS:
-                test_field = getattr(config_test, field)
-                if test_field:
-                    file_path = getattr(test_field, 'file_path')
-                    if file_path:
-                        if file_path in ALL_CONFIGS_FILE_PATHS[field]:
-                            raise ImproperlyConfigured(
-                                f"Test with {field} file_path: '{file_path}' already exists in yaml file."
-                            )
-                        else:
-                            ALL_CONFIGS_FILE_PATHS[field].add(file_path)
+                file_path = getattr(getattr(config_test, field, None), 'file_path', None)
+                if file_path:
+                    if file_path in ALL_CONFIGS_FILE_PATHS[field]:
+                        raise ImproperlyConfigured(
+                            f"Test with {field} file_path: '{file_path}' already exists in yaml file."
+                        )
+                    else:
+                        ALL_CONFIGS_FILE_PATHS[field].add(file_path)
     return active_congfigs
 
 
