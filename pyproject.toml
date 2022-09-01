@@ -40,6 +40,7 @@ skipsdist = True
 setenv =
     USER = root
     PWD = .
+    TEST_CONFIGS_DIR = test_configs/examples/
 deps =
     pytest
     coverage
