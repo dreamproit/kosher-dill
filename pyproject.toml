@@ -46,8 +46,10 @@ deps =
     coverage
     poetry
 commands =
-    poetry install --no-dev
-    coverage run -m pytest
+    poetry install
+    flake8
+#    coverage run -m pytest
+    coverage run -m unittest -vv
     coverage xml
 [coverage:run]
 relative_files = True
