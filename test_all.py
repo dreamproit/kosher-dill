@@ -18,7 +18,6 @@ def get_class_name(cls, num, params_dict):
         test_class_name=cls.__name__,
         test_number=num,
         test_name=parameterized.to_safe_name(params_dict["name"]),
-        test=parameterized.to_safe_name(params_dict["test"].test),
     )
     return test_name
 

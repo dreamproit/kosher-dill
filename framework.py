@@ -19,13 +19,14 @@ from envyaml import EnvYAML
 from constants import COLORS, config, log_format
 from differ import TestWithDiffs
 
+
 # YamlIncludeConstructor.add_to_loader_class(
 #     loader_class=yaml.SafeLoader, base_dir="./test_configs"
 # )
 
 
 def path_resolver_wrapper(
-    yaml_test_file_path: Path,
+        yaml_test_file_path: Path,
 ) -> Callable[[Union[str, Path, list]], Path]:
     def _path_resolver(value: Union[str, Path, list]) -> Path:
         path = yaml_test_file_path.parent
@@ -85,7 +86,7 @@ class Flag:
                 # case FlagTypeEnum.INT:
                 #     self.value = int(self.value)
                 case FlagTypeEnum.STR:
-                    self.value = self.value
+                    self.value = str(self.value)
                 case FlagTypeEnum.PATH:
                     self.value = Path(self.value)
                 case FlagTypeEnum.RESOLVED_PATH:
@@ -115,9 +116,10 @@ class BaseContent:
         not_allowed_together_fields: List[str] = ()
 
     def __str__(self):
+        shorten_content = self.content if len(self.content) > 1000 else self.content[:100] + '...' + self.content[-100:]
         return (
             f"{self.__class__.__name__}("
-            f"content={self.content if len(self.content) > 1000 else self.content[:100] + '...' + self.content[-100:]}, "
+            f"content={shorten_content}, "
             f"encoding={self.encoding}, "
             f"treat_as={self.treat_as}, "
             f"file_path={self.file_path}, "
@@ -132,21 +134,17 @@ class BaseContent:
             log.warning(f"file_path is a list, joining: {self.file_path}")
             self.file_path = Path(*self.file_path)
 
-        # if not self.file_path.is_absolute():
-        #     log.warning(f"file_path is not absolute, making it absolute: {self.file_path}")
-        #     self.file_path = self.file_path.resolve()
-
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
-            getattr(self, field) is not None
-            for field in self.Meta.least_one_required_fields
+                getattr(self, field) is not None
+                for field in self.Meta.least_one_required_fields
         ):
             raise ImproperlyConfigured(
                 f"At least one of {self.Meta.least_one_required_fields} must be provided"
             )
         if self.Meta.not_allowed_together_fields and all(
-            getattr(self, field) is not None
-            for field in self.Meta.not_allowed_together_fields
+                getattr(self, field) is not None
+                for field in self.Meta.not_allowed_together_fields
         ):
             raise ImproperlyConfigured(
                 f"Only one of {self.Meta.not_allowed_together_fields} must be set"
@@ -218,11 +216,11 @@ class Content(BaseContent):
                 )
             )
         if (
-            self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML)
-            and self.ignore_fields is not None
+                self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML)
+                and self.ignore_fields is not None
         ):
             raise ImproperlyConfigured(
-                f"ignore_fields can only be set when treating as JSON or YAML"
+                "ignore_fields can only be set when treating as JSON or YAML"
             )
 
         match self.treat_as:
@@ -245,52 +243,48 @@ class Content(BaseContent):
                         )  # TODO: review it! (self.content)
                     )
 
-    def __replace_by_path(self, data, path):
-        def get_item(d, key):
-            intable_key = to_int(key)
-            # if key in data:
-            #     return data[key]
-            # if d and ((intable_key is not None and len(d) >= intable_key) or (
-            #         d.get(intable_key) is not None
-            # )):
-            #     return d[key]
-            try:
-                if isinstance(d, dict):
-                    d = d[key]
-                elif isinstance(d, (list, tuple)):
-                    if key != "*":
-                        d = d[int(key)]
-                    else:
-                        log.info(f"<replace_by_path> key is '*', returning all items")
+    @staticmethod
+    def __get_item_form_object(d, key):
+        try:
+            if isinstance(d, dict):
+                d = d[key]
+            elif isinstance(d, (list, tuple)):
+                if key != "*":
+                    d = d[int(key)]
                 else:
-                    log.warning(f"{d} is not a dict or list")
-                return d
-            except (KeyError, IndexError) as e:
-                # Now we making a warning about missing key to ignore.
-                log.warning(f"ignore field: '{key}' not found in expected result.")
+                    log.info("<replace_by_path> key is '*', returning all items")
+            else:
+                log.warning(f"{d} is not a dict or list")
+            return d
+        except (KeyError, IndexError):
+            # Now we making a warning about missing key to ignore.
+            log.warning(f"ignore field: '{key}' not found in expected result.")
 
-        def to_int(value):
-            try:
-                return int(value)
-            except ValueError as e:
-                return None
+    @staticmethod
+    def __value_to_int(value):
+        try:
+            return int(value)
+        except ValueError:
+            return None
 
+    @staticmethod
+    def __replace_by_path(data: Union[list, tuple, dict], path: str):
         _path = []
         local_data = data
         path_parts = path.split(".")
 
         for part in path_parts[:-1]:
             _path.append(part)
-            local_data = get_item(local_data, part)
+            local_data = Content.__get_item_form_object(local_data, part)
 
         if local_data:
             last_key = path_parts[-1]
-            intable_key = to_int(last_key)
+            intable_key = Content.__value_to_int(last_key)
 
             if last_key in local_data:
                 local_data[last_key] = ANY
             if (intable_key is not None and len(local_data) >= intable_key) or (
-                local_data.get(intable_key) is not None
+                    local_data.get(intable_key) is not None
             ):
                 local_data[intable_key] = ANY
 
@@ -356,13 +350,11 @@ class ConfigTestCase:
     def build_command(self, bin_path: Path) -> List[str]:
         log.debug(self.flags)
         command = (
-            # [str(bin_path)]
             ([f for flag in self.flags for f in flag.build()] if self.flags else [])
             + self.arguments
         )
         log.info(f"\n{command}")
         return command
-        # return "".join(command)
 
     def __post_init__(self):
         if self.env or self.root_env:
@@ -377,7 +369,7 @@ class ConfigTestCase:
             self.cwd = self.cwd or self.root_cwd
 
         if not any(
-            [field is not None for field in self.Meta.least_one_required_fields]
+                [field is not None for field in self.Meta.least_one_required_fields]
         ):
             raise ImproperlyConfigured(
                 f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided"
@@ -447,8 +439,8 @@ class ConfigTestCase:
             )
 
         if (
-            self.expected_return_code is not None
-            and self.expected_return_code != proc.returncode
+                self.expected_return_code is not None
+                and self.expected_return_code != proc.returncode
         ):
             # Returned return code is different than expected
             yield (
@@ -493,13 +485,13 @@ class TestConfig:
             if test.skip:
                 continue
             for exp, out, err in test.run(
-                self.binary_path,
+                    self.binary_path,
             ):
                 yield exp, out, err
 
 
 def _content_resolver_wrapper(
-    cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
+        cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
 ) -> Callable[[Dict], Union[Content, WritableContent]]:
     def content_resolver(content: Dict[Any, Any]) -> Union[Content, WritableContent]:
         return from_dict(
@@ -604,26 +596,28 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
     for config_test in active_config.tests:
         if config_test.stdout and config_test.expected_stdout:
             if not check_output_content_type(
-                config_test.stdout,
-                config_test.expected_stdout,
+                    config_test.stdout,
+                    config_test.expected_stdout,
             ):
                 raise ImproperlyConfigured(
-                    f"Test '{config_test.test}' stdout content type: '{config_test.stdout.treat_as.name}' does not match "
+                    f"Test '{config_test.test}' stdout content type: "
+                    f"'{config_test.stdout.treat_as.name}' does not match "
                     f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'."
                 )
         if config_test.stderr and config_test.expected_stderr:
             if not check_output_content_type(
-                config_test.stderr,
-                config_test.expected_stderr,
+                    config_test.stderr,
+                    config_test.expected_stderr,
             ):
                 raise ImproperlyConfigured(
-                    f"Test '{config_test.test}' stderr content type: '{config_test.stderr.treat_as.name}' does not match "
+                    f"Test '{config_test.test}' stderr content type: "
+                    f"'{config_test.stderr.treat_as.name}' does not match "
                     f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'."
                 )
     return active_config
 
 
-def check_output_content_type(actual_output: Content, expected_output: Content) -> bool:
+def check_output_content_type(actual_output: Union[Content, WritableContent], expected_output: Content) -> bool:
     """Check .treat_as property of the outputs and raise exception if type doesn't match."""
     return actual_output.treat_as.value == expected_output.treat_as.value
 
@@ -634,7 +628,8 @@ def validate_test_names_uniqueness(active_config: TestConfig) -> TestConfig:
     names_count_map = {name: test_names.count(name) for name in test_names}
     if len(test_names) != len(names_count_map):
         raise ImproperlyConfigured(
-            f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' already exists in yaml file."
+            f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' "
+            "already exists in yaml file."
         )
     return active_config
 
@@ -671,7 +666,7 @@ class BaseTestCase(TestWithDiffs):
 
 
 def build_test_params(
-    tests_config_dir: Optional[Union[Path, str]] = "",
+        tests_config_dir: Optional[Union[Path, str]] = "",
 ) -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
     loaded_configs = load_configs(
         # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)

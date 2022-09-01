@@ -1,45 +1,40 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: Python application
-
+name: Build and test
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches:
+      - main
+      - dev
   pull_request:
-    branches: [ "main", "dev" ]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
 jobs:
-  build:
-
+  sonarcloud:
+    name: SonarCloud
     runs-on: ubuntu-latest
-    env: 
-       TEST_CONFIGS_DIR: "test_configs/examples/"
-       LOG_LEVEL: "INFO"
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python 3.10
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.10"
-        
-    - name: Poetry Install
-      run: |
-        pip install -U pip;
-        pip install poetry;
-        poetry config virtualenvs.create false;
-        poetry install;
-#
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-         python -m unittest -vv
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Install tox and any other packages
+        run: pip install tox
+
+      - name: Run tox
+        run: tox -e py
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
