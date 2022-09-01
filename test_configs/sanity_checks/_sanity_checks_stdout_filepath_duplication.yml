@@ -1,0 +1,49 @@
+# This yaml file must not be launching directly, instead use other yaml file to run this one.
+name: Test sanity checks
+description: Sanity checks for yaml files
+skip: False
+binary_path: ls
+default_parameters:
+  log_file: ${PWD}/sanity_checks.log
+#
+text_output: &AS_TEXT
+  treat_as: text
+bytes_output: &AS_BYTES
+  treat_as: bytes
+json_output: &AS_JSON
+  treat_as: json
+#
+stdin_folder: &STDIN_FOLDER ../../tests_data/examples/stdin
+stdout_folder: &STDOUT_FOLDER ../../tests_data/examples/stdout
+stderr_folder: &STDERR_FOLDER ../../tests_data/examples/stderr
+expected_stdout_folder: &EXPECTED_STDOUT_FOLDER ../../tests_data/examples/expected_stdout
+expected_stderr_folder: &EXPECTED_STDERR_FOLDER ../../tests_data/examples/expected_stderr
+#
+tests:
+#   # Pair of test to check for duplication in test stdout file_path values.
+  - test: "stdout file_path duplicate test_1"
+    cwd: ./../../tests_data/examples/stdin/
+    binary_path: cat
+    skip: False
+    stdin:
+      file_path: [*STDIN_FOLDER, input_sanity_check.json]
+      treat_as: bytes
+    stdout:
+      treat_as: json
+      file_path:  [*STDOUT_FOLDER, sanity_stdout.json]
+    expected_stdout:
+      treat_as: json
+      file_path:  [*EXPECTED_STDOUT_FOLDER, expected_sanity_check.json]
+  - test: "stdout file_path duplicate test_2"
+    cwd: ./../../tests_data/examples/stdin/
+    binary_path: cat
+    skip: False
+    stdin:
+      file_path: [*STDIN_FOLDER, ignore_fields_actual.json]
+      treat_as: bytes
+    stdout:
+      treat_as: json
+      file_path:  [*STDOUT_FOLDER, sanity_stdout.json]
+    expected_stdout:
+      treat_as: json
+      file_path:  [*EXPECTED_STDOUT_FOLDER, expected_sanity_check.json]

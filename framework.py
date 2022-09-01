@@ -644,8 +644,6 @@ def validate_test_file_paths_uniqueness(active_congfigs: list[TestConfig]) -> li
     ALL_CONFIGS_FILE_PATHS = {
         'stdout': set(),
         'stderr': set(),
-        'expected_stdout': set(),
-        'expected_stderr': set(),
     }
     for active_config in active_congfigs:
         for config_test in active_config.tests:
