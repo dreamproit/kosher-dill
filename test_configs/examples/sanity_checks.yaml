@@ -1,0 +1,52 @@
+name: Sanity check tests
+description: Test sanity checks for framework
+skip: False
+binary_path: python
+default_parameters:
+  log_file: ${PWD}/XMLextract.log
+tests:
+  - test: "Run _sanity_checks for test name duplication."
+    cwd: "./../../"
+    binary_path: python
+    arguments:
+      - "test_all.py"
+    env:
+      LOG_LEVEL: INFO
+      TEST_CONFIGS_DIR: ./test_configs/sanity_checks/_sanity_checks_test_name_duplication.yml
+    expected_return_code: 1
+  - test: "Run _sanity_checks for stdout file_path duplication."
+    cwd: "./../../"
+    binary_path: python
+    arguments:
+      - "test_all.py"
+    env:
+      LOG_LEVEL: INFO
+      TEST_CONFIGS_DIR: ./test_configs/sanity_checks/_sanity_checks_stdout_filepath_duplication.yml
+    expected_return_code: 1
+  - test: "Run _sanity_checks for stderr file_path duplication."
+    cwd: "./../../"
+    binary_path: python
+    arguments:
+      - "test_all.py"
+    env:
+      LOG_LEVEL: INFO
+      TEST_CONFIGS_DIR: ./test_configs/sanity_checks/_sanity_checks_stderr_filepath_duplication.yml
+    expected_return_code: 1
+  - test: "Run _sanity_checks for stdout and expected_stdout content type mismatch."
+    cwd: "./../../"
+    binary_path: python
+    arguments:
+      - "test_all.py"
+    env:
+      LOG_LEVEL: INFO
+      TEST_CONFIGS_DIR: ./test_configs/sanity_checks/_sanity_checks_stdout_expected_stdout_content_type_mismatch.yml
+    expected_return_code: 1
+  - test: "Run _sanity_checks for stderr and expected_stderr content type mismatch."
+    cwd: "./../../"
+    binary_path: python
+    arguments:
+      - "test_all.py"
+    env:
+      LOG_LEVEL: INFO
+      TEST_CONFIGS_DIR: ./test_configs/sanity_checks/_sanity_checks_stderr_expected_stderr_content_type_mismatch.yml
+    expected_return_code: 1

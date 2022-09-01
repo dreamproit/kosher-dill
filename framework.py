@@ -586,7 +586,77 @@ def load_configs() -> Optional[List[TestConfig]]:
         raise ImproperlyConfigured(
             "No active configs found in {}".format(tests_config_dir)
         )
+    validate_configs(active_configs)
+
     return active_configs
+
+
+def validate_configs(active_congfigs: list[TestConfig]) -> list[TestConfig]:
+    """Validate TestConfig to make sure it us properly configured."""
+    validate_test_file_paths_uniqueness(active_congfigs)
+    for active_config in active_congfigs:
+        validate_output_content_type(active_config)
+        validate_test_names_uniqueness(active_config)
+
+
+def validate_output_content_type(active_config: TestConfig) -> TestConfig:
+    """Validate output content type for each: stdout, stderr and expected_stdout, expected_stderr."""
+    for config_test in active_config.tests:
+        if config_test.stdout and config_test.expected_stdout:
+            if not check_output_content_type(
+                config_test.stdout,
+                config_test.expected_stdout,
+            ):
+                raise ImproperlyConfigured(
+                    f"Test '{config_test.test}' stdout content type: '{config_test.stdout.treat_as.name}' does not match "
+                    f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'."
+                )
+        if config_test.stderr and config_test.expected_stderr:
+            if not check_output_content_type(
+                config_test.stderr,
+                config_test.expected_stderr,
+            ):
+                raise ImproperlyConfigured(
+                    f"Test '{config_test.test}' stderr content type: '{config_test.stderr.treat_as.name}' does not match "
+                    f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'."
+                )
+    return active_config
+
+
+def check_output_content_type(actual_output: Content, expected_output: Content) -> bool:
+    """Check .treat_as property of the outputs and raise exception if type doesn't match."""
+    return actual_output.treat_as.value == expected_output.treat_as.value
+
+
+def validate_test_names_uniqueness(active_config: TestConfig) -> TestConfig:
+    """Check test names for uniqueness."""
+    test_names = [test.test for test in active_config.tests]
+    names_count_map = {name: test_names.count(name) for name in test_names}
+    if len(test_names) != len(names_count_map):
+        raise ImproperlyConfigured(
+            f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' already exists in yaml file."
+        )
+    return active_config
+
+
+def validate_test_file_paths_uniqueness(active_congfigs: list[TestConfig]) -> list[TestConfig]:
+    """Check test stdout, stderr 'file_path' for uniqueness."""
+    ALL_CONFIGS_FILE_PATHS = {
+        'stdout': set(),
+        'stderr': set(),
+    }
+    for active_config in active_congfigs:
+        for config_test in active_config.tests:
+            for field in ALL_CONFIGS_FILE_PATHS:
+                file_path = getattr(getattr(config_test, field, None), 'file_path', None)
+                if file_path:
+                    if file_path in ALL_CONFIGS_FILE_PATHS[field]:
+                        raise ImproperlyConfigured(
+                            f"Test with {field} file_path: '{file_path}' already exists in yaml file."
+                        )
+                    else:
+                        ALL_CONFIGS_FILE_PATHS[field].add(file_path)
+    return active_congfigs
 
 
 class BaseTestCase(TestWithDiffs):
