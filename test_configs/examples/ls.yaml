@@ -1,6 +1,6 @@
 name: Test ls
 description: Test UNIX ls command
-# TODO: fix test and un-skip 
+# TODO: fix test and un-skip
 skip: True
 #binary_path: /bin/busybox
 binary_path: ls
