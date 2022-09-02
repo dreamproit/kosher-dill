@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Callable, Generator,  Mapping
+from collections.abc import Callable, Generator, Mapping
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
@@ -15,12 +15,35 @@ from unittest.mock import ANY
 from dacite import Config, from_dict
 from envyaml import EnvYAML
 
-from constants import COLORS, config, log_format
-from differ import TestWithDiffs
+from .constants import COLORS, config, log_format
+from .differ import TestWithDiffs
+
+log = logging.getLogger(__name__)
+log.setLevel(
+    config.LOG_LEVEL,
+    # if config.LOG_LEVEL is not None
+    # else framework_config["logging"].get("level", "WARNING")
+)
+
+formatter = logging.Formatter(log_format)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(formatter)
+log.addHandler(ch)
+
 
 def path_resolver_wrapper(
     yaml_test_file_path: Path,
 ) -> Callable[[str | Path | list], Path]:
+    """Wrapper for path resolver function.
+
+    Args:
+        yaml_test_file_path (Path): Path to the yaml test file.
+
+    Returns:
+        Callable[[str | Path | list], Path]: Path resolver function.
+    """
+
     def _path_resolver(value: str | Path | list) -> Path:
         path = yaml_test_file_path.parent
         if isinstance(value, str):
@@ -34,21 +57,7 @@ def path_resolver_wrapper(
     return _path_resolver
 
 
-log = logging.getLogger(__name__)
-log.setLevel(
-    config.LOG_LEVEL
-    # if config.LOG_LEVEL is not None
-    # else framework_config["logging"].get("level", "WARNING")
-)
-
-formatter = logging.Formatter(log_format)
-
-ch = logging.StreamHandler(sys.stdout)
-ch.setFormatter(formatter)
-log.addHandler(ch)
-
-
-class ImproperlyConfigured(Exception):
+class ImproperlyConfiguredError(Exception):
     pass
 
 
@@ -131,14 +140,14 @@ class BaseContent:
         if self.Meta.least_one_required_fields and not any(
             getattr(self, field) is not None for field in self.Meta.least_one_required_fields
         ):
-            raise ImproperlyConfigured(f"At least one of {self.Meta.least_one_required_fields} must be provided")
+            raise ImproperlyConfiguredError(f"At least one of {self.Meta.least_one_required_fields} must be provided")
         if self.Meta.not_allowed_together_fields and all(
             getattr(self, field) is not None for field in self.Meta.not_allowed_together_fields
         ):
-            raise ImproperlyConfigured(f"Only one of {self.Meta.not_allowed_together_fields} must be set")
+            raise ImproperlyConfiguredError(f"Only one of {self.Meta.not_allowed_together_fields} must be set")
 
         if self.treat_as == TreatableTypes.BYTES and not self.encoding:
-            raise ImproperlyConfigured("Encoding must be set when treating as bytes")
+            raise ImproperlyConfiguredError("Encoding must be set when treating as bytes")
 
     @property
     def treated(self):
@@ -163,7 +172,7 @@ class BaseContent:
                     data = EnvYAML(self.content)
             return data
         except Exception as e:
-            raise ImproperlyConfigured(f"Error '{e}' in {type(self)} treating content: {self.content[:100]}")
+            raise ImproperlyConfiguredError(f"Error '{e}' in {type(self)} treating content: {self.content[:100]}")
 
 
 @dataclasses.dataclass
@@ -191,7 +200,7 @@ class Content(BaseContent):
                 else (self.yaml_test_file_path.parent.joinpath(self.file_path).read_text())
             )
         if self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML) and self.ignore_fields is not None:
-            raise ImproperlyConfigured("ignore_fields can only be set when treating as JSON or YAML")
+            raise ImproperlyConfiguredError("ignore_fields can only be set when treating as JSON or YAML")
 
         match self.treat_as:
             case TreatableTypes.BYTES:
@@ -208,7 +217,7 @@ class Content(BaseContent):
                 log.info(f"Converting {self.file_path} to yaml")
                 if self.file_path:
                     self.content = self.__replace_json_paths(
-                        dict(EnvYAML(str(self.file_path)))  # TODO: review it! (self.content)
+                        dict(EnvYAML(str(self.file_path))),  # TODO: review it! (self.content)
                     )
 
     @staticmethod
@@ -332,12 +341,12 @@ class ConfigTestCase:
             self.cwd = self.cwd or self.root_cwd
 
         if not any([field is not None for field in self.Meta.least_one_required_fields]):
-            raise ImproperlyConfigured(
-                f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided"
+            raise ImproperlyConfiguredError(
+                f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided",
             )
         # print(self)
 
-    def run(self, bin_path: Path | None = None):
+    def run(self, bin_path: Path | None = None):  # noqa: CCR001
         if self.skip:
             return
 
@@ -349,7 +358,7 @@ class ConfigTestCase:
 
         log.info(
             f"\t\t* RUN: {self.binary_path} {' '.join(command)} "
-            f"{' < ' + str(self.stdin.file_path.resolve()) if self.stdin else ''}"
+            f"{' < ' + str(self.stdin.file_path.resolve()) if self.stdin else ''}",
         )
         log.info(f"\t\t* In directory: {self.cwd}")
         # log.info(dict(os.environ))
@@ -445,7 +454,8 @@ class TestConfig:
 
 
 def _content_resolver_wrapper(
-    cls: type[Content] | type[WritableContent], yaml_test_file_path: Path
+    cls: type[Content] | type[WritableContent],
+    yaml_test_file_path: Path,
 ) -> Callable[[dict], Content | WritableContent]:
     def content_resolver(content: dict[Any, Any]) -> Content | WritableContent:
         return from_dict(
@@ -488,7 +498,7 @@ def load_configs() -> list[TestConfig] | None:
                     **dict(
                         EnvYAML(
                             str(config_file.absolute()),
-                        )
+                        ),
                     ),
                     **additional_data,
                 ),
@@ -513,12 +523,12 @@ def load_configs() -> list[TestConfig] | None:
             raise e
 
     if not gathered_configs:
-        raise ImproperlyConfigured(f"No configs found in {tests_config_dir}")
+        raise ImproperlyConfiguredError(f"No configs found in {tests_config_dir}")
 
     active_configs = [config for config in gathered_configs if config.skip is not True]
 
     if not active_configs:
-        raise ImproperlyConfigured(f"No active configs found in {tests_config_dir}")
+        raise ImproperlyConfiguredError(f"No active configs found in {tests_config_dir}")
     validate_configs(active_configs)
 
     return active_configs
@@ -536,24 +546,24 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
     """Validate output content type for each: stdout, stderr and expected_stdout, expected_stderr."""
     for config_test in active_config.tests:
         if (
-            config_test.stdout and config_test.expected_stdout and not check_output_content_type(
-                config_test.stdout,
-                config_test.expected_stdout)
+            config_test.stdout
+            and config_test.expected_stdout
+            and not check_output_content_type(config_test.stdout, config_test.expected_stdout)
         ):
-            raise ImproperlyConfigured(
+            raise ImproperlyConfiguredError(
                 f"Test '{config_test.test}' stdout content type: "
                 f"'{config_test.stdout.treat_as.name}' does not match "
-                f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'."
+                f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'.",
             )
         if (
-            config_test.stderr and config_test.expected_stderr and not check_output_content_type(
-                config_test.stderr,
-                config_test.expected_stderr)
+            config_test.stderr
+            and config_test.expected_stderr
+            and not check_output_content_type(config_test.stderr, config_test.expected_stderr)
         ):
-            raise ImproperlyConfigured(
+            raise ImproperlyConfiguredError(
                 f"Test '{config_test.test}' stderr content type: "
                 f"'{config_test.stderr.treat_as.name}' does not match "
-                f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'."
+                f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'.",
             )
     return active_config
 
@@ -568,32 +578,32 @@ def validate_test_names_uniqueness(active_config: TestConfig) -> TestConfig:
     test_names = [test.test for test in active_config.tests]
     names_count_map = {name: test_names.count(name) for name in test_names}
     if len(test_names) != len(names_count_map):
-        raise ImproperlyConfigured(
+        raise ImproperlyConfiguredError(
             f"Test with name: '{', '.join(test_name for test_name, cnt in names_count_map.items() if cnt > 1)}' "
-            "already exists in yaml file."
+            "already exists in yaml file.",
         )
     return active_config
 
 
-def validate_test_file_paths_uniqueness(
+def validate_test_file_paths_uniqueness(  # noqa: CCR001
     active_congfigs: list[TestConfig],
 ) -> list[TestConfig]:
     """Check test stdout, stderr 'file_path' for uniqueness."""
-    ALL_CONFIGS_FILE_PATHS = {
+    all_configs_file_paths = {
         "stdout": set(),
         "stderr": set(),
     }
     for active_config in active_congfigs:
         for config_test in active_config.tests:
-            for field in ALL_CONFIGS_FILE_PATHS:
+            for field in all_configs_file_paths:
                 file_path = getattr(getattr(config_test, field, None), "file_path", None)
                 if file_path:
-                    if file_path in ALL_CONFIGS_FILE_PATHS[field]:
-                        raise ImproperlyConfigured(
-                            f"Test with {field} file_path: '{file_path}' already exists in yaml file."
+                    if file_path in all_configs_file_paths[field]:
+                        raise ImproperlyConfiguredError(
+                            f"Test with {field} file_path: '{file_path}' already exists in yaml file.",
                         )
                     else:
-                        ALL_CONFIGS_FILE_PATHS[field].add(file_path)
+                        all_configs_file_paths[field].add(file_path)
     return active_congfigs
 
 

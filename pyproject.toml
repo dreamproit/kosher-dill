@@ -27,10 +27,14 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.flake8]
-ignore = ['E231', 'E241', 'W503']
+ignore = ['E231', 'E241', 'W503',]
 max-line-length = 120
 count = true
 max-complexity = 10
+
+[tool.autoflake]
+check = true
+imports = ["__future__", "builtins", "collections", "contextlib", "dataclasses", "enum", "functools", "itertools", "logging", "os", "pathlib", "re", "shutil", "subprocess", "sys", "time", "typing", "unittest", "warnings"]
 
 [tool.tox]
 legacy_tox_ini = """
@@ -46,9 +50,10 @@ deps =
     pytest
     coverage
     poetry
-    Flake8-pyproject
+    flake8-pyproject
+    flake8-cognitive-complexity
 commands =
-    flake8 . --count --statistics
+    flake8 . --count --statistics --ignore=E203,E231,E241,W503 --max-line-length=120 --max-complexity=10 --max-cognitive-complexity=15
     poetry install
     coverage erase
 #    coverage run -m pytest
