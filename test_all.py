@@ -24,7 +24,7 @@ def get_class_name(cls, num, params_dict):
 
 @parameterized_class(*build_test_params(), class_name_func=get_class_name)
 class Test(BaseTestCase):
-    diffMode = 2
+    diff_mode = 2
     name: str
     test: Callable
 
