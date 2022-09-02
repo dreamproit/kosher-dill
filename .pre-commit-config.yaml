@@ -30,11 +30,11 @@ repos:
       - id: black
         args: [ --line-length=120 ]
 
-  - repo: https://github.com/PyCQA/autoflake
-    rev: v1.5.3
-    hooks:
-      - id: autoflake
-        args: [ --remove-unused-variables,   --remove-all-unused-imports, --in-place, -r ]
+#  - repo: https://github.com/PyCQA/autoflake
+#    rev: v1.5.3
+#    hooks:
+#      - id: autoflake
+#        args: [ --remove-unused-variables,   --remove-all-unused-imports, --in-place, -r ]
 
 #  - repo: https://github.com/asottile/reorder_python_imports
 #    rev: v3.8.2
