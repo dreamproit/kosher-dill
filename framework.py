@@ -346,7 +346,7 @@ class ConfigTestCase:
             "expected_return_code",
         )
 
-    def build_command(self, bin_path: Path = None) -> List[str]:
+    def build_command(self) -> List[str]:
         log.debug(self.flags)
         command = (
             ([f for flag in self.flags for f in flag.build()] if self.flags else [])
@@ -383,7 +383,7 @@ class ConfigTestCase:
         stdin = self.stdin.content if self.stdin else None
         log.info("\n")
         log.debug(f"\t{self.test}")
-        command = self.build_command(bin_path)
+        command = self.build_command()
 
         log.info(
             f"\t\t* RUN: {self.binary_path} {' '.join(command)} "
