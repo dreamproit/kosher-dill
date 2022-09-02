@@ -239,7 +239,7 @@ class Content(BaseContent):
                     self.content = self.__replace_json_paths(
                         dict(
                             EnvYAML(str(self.file_path))
-                        )  # TODO: review it! (self.content)
+                        )
                     )
 
     @staticmethod
@@ -376,8 +376,6 @@ class ConfigTestCase:
         # print(self)
 
     def run(self, bin_path: Optional[Path] = None):
-        if self.skip:
-            return
 
         bin_path = bin_path or self.binary_path
         stdin = self.stdin.content if self.stdin else None
@@ -407,19 +405,7 @@ class ConfigTestCase:
         log.info(f"PROCESS STDOUT: {shorten_string(output.decode(), 200)}")
         log.info(f"PROCESS STDERR: {shorten_string(err.decode(), 200)}")
 
-        if self.stdout is None:
-            self.stdout = WritableContent(content=output)
-        else:
-            self.stdout.content = output.decode(self.stdout.encoding)
-            if self.stdout.content:
-                self.stdout.save()
-
-        if self.stderr is None:
-            self.stderr = WritableContent(content=err)
-        else:
-            self.stderr.content = err.decode(self.stderr.encoding)
-            if self.stderr.content:
-                self.stderr.save()
+        self.save_outputs(output, err)
 
         if self.expected_stdout:
             # Returned stdout is different than expected
@@ -446,6 +432,22 @@ class ConfigTestCase:
                 self.expected_return_code,
                 f"{self.test} - Return code is different than expected",
             )
+
+    def save_outputs(self, output: bytes, err: bytes) -> None:
+        """Saves stdout, stderr outputs content."""
+        if self.stdout is None:
+            self.stdout = WritableContent(content=output)
+        else:
+            self.stdout.content = output.decode(self.stdout.encoding)
+            if self.stdout.content:
+                self.stdout.save()
+
+        if self.stderr is None:
+            self.stderr = WritableContent(content=err)
+        else:
+            self.stderr.content = err.decode(self.stderr.encoding)
+            if self.stderr.content:
+                self.stderr.save()
 
 
 @dataclasses.dataclass
@@ -636,8 +638,7 @@ def validate_test_file_paths_uniqueness(active_congfigs: list[TestConfig]) -> li
                         raise ImproperlyConfigured(
                             f"Test with {field} file_path: '{file_path}' already exists in yaml file."
                         )
-                    else:
-                        ALL_CONFIGS_FILE_PATHS[field].add(file_path)
+                    ALL_CONFIGS_FILE_PATHS[field].add(file_path)
     return active_congfigs
 
 
@@ -652,12 +653,8 @@ class BaseTestCase(TestWithDiffs):
             self.assertEqual(expected, actual, msg)
 
 
-def build_test_params(
-        tests_config_dir: Optional[Union[Path, str]] = "",
-) -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
-    loaded_configs = load_configs(
-        # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
-    )
+def build_test_params() -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
+    loaded_configs = load_configs()
     log.debug(f"Loaded configs: {loaded_configs}")
     configs_to_run = (("name", "test"), [])
     for test_config in loaded_configs:
