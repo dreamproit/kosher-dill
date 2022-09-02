@@ -5,12 +5,11 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Generator,  Mapping
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import (Any, Callable, Dict, Generator, List, Literal, Optional,
-                    Type, Union)
+from typing import Any, Literal
 from unittest.mock import ANY
 
 from dacite import Config, from_dict
@@ -19,15 +18,10 @@ from envyaml import EnvYAML
 from constants import COLORS, config, log_format
 from differ import TestWithDiffs
 
-# YamlIncludeConstructor.add_to_loader_class(
-#     loader_class=yaml.SafeLoader, base_dir="./test_configs"
-# )
-
-
 def path_resolver_wrapper(
-        yaml_test_file_path: Path,
-) -> Callable[[Union[str, Path, list]], Path]:
-    def _path_resolver(value: Union[str, Path, list]) -> Path:
+    yaml_test_file_path: Path,
+) -> Callable[[str | Path | list], Path]:
+    def _path_resolver(value: str | Path | list) -> Path:
         path = yaml_test_file_path.parent
         if isinstance(value, str):
             path = Path(value)
@@ -75,8 +69,8 @@ class TreatableTypes(Enum):
 @dataclasses.dataclass
 class Flag:
     name: str
-    type: Optional[FlagTypeEnum]
-    value: Optional[Union[str, Path, int, float, decimal.Decimal]]  # = None
+    type: FlagTypeEnum | None
+    value: str | Path | int | float | decimal.Decimal | None  # = None
 
     def __post_init__(self):
         log.info(f"Flag.__post_init__({self})")
@@ -103,19 +97,19 @@ class Flag:
 
 @dataclasses.dataclass
 class BaseContent:
-    content: Optional[Union[str, bytes, dict, list]]
+    content: str | bytes | dict | list | None
     encoding: Literal["utf-8"] = "utf-8"
     treat_as: TreatableTypes = TreatableTypes.BYTES
-    file_path: Optional[Union[list, Path]] = None
-    yaml_test_file_path: Optional[Path] = None
-    directory: Optional[Union[str, Path]] = None
+    file_path: list | Path | None = None
+    yaml_test_file_path: Path | None = None
+    directory: str | Path | None = None
 
     class Meta:
-        least_one_required_fields: List[str] = []
-        not_allowed_together_fields: List[str] = []
+        least_one_required_fields: list[str] = []
+        not_allowed_together_fields: list[str] = []
 
     def __str__(self):
-        shorten_content = self.content if len(self.content) > 1000 else self.content[:100] + '...' + self.content[-100:]
+        shorten_content = self.content if len(self.content) > 1000 else self.content[:100] + "..." + self.content[-100:]
         return (
             f"{self.__class__.__name__}("
             f"content={shorten_content}, "
@@ -135,19 +129,13 @@ class BaseContent:
 
     def validate(self):
         if self.Meta.least_one_required_fields and not any(
-                getattr(self, field) is not None
-                for field in self.Meta.least_one_required_fields
+            getattr(self, field) is not None for field in self.Meta.least_one_required_fields
         ):
-            raise ImproperlyConfigured(
-                f"At least one of {self.Meta.least_one_required_fields} must be provided"
-            )
+            raise ImproperlyConfigured(f"At least one of {self.Meta.least_one_required_fields} must be provided")
         if self.Meta.not_allowed_together_fields and all(
-                getattr(self, field) is not None
-                for field in self.Meta.not_allowed_together_fields
+            getattr(self, field) is not None for field in self.Meta.not_allowed_together_fields
         ):
-            raise ImproperlyConfigured(
-                f"Only one of {self.Meta.not_allowed_together_fields} must be set"
-            )
+            raise ImproperlyConfigured(f"Only one of {self.Meta.not_allowed_together_fields} must be set")
 
         if self.treat_as == TreatableTypes.BYTES and not self.encoding:
             raise ImproperlyConfigured("Encoding must be set when treating as bytes")
@@ -161,37 +149,27 @@ class BaseContent:
             match self.treat_as:
                 case TreatableTypes.BYTES:
                     if isinstance(self.content, str):
-                        log.info(
-                            f"<treated> Converting to bytes. Length: {len(self.content)}"
-                        )
+                        log.info(f"<treated> Converting to bytes. Length: {len(self.content)}")
                         data = bytes(self.content, self.encoding)
                 case TreatableTypes.TEXT:
                     if isinstance(self.content, bytes):
-                        log.info(
-                            f"<treated> Converting to text. Length: {len(self.content)}"
-                        )
+                        log.info(f"<treated> Converting to text. Length: {len(self.content)}")
                         data = str(self.content.decode(self.encoding))
                 case TreatableTypes.JSON:
-                    log.info(
-                        f"<treated> Converting to json. Length: {len(self.content)}. File path: {self.file_path}"
-                    )
+                    log.info(f"<treated> Converting to json. Length: {len(self.content)}. File path: {self.file_path}")
                     data = json.loads(self.content)
                 case TreatableTypes.YAML:
-                    log.info(
-                        f"<treated> Converting to yaml. Length: {len(self.content)}"
-                    )
+                    log.info(f"<treated> Converting to yaml. Length: {len(self.content)}")
                     data = EnvYAML(self.content)
             return data
         except Exception as e:
-            raise ImproperlyConfigured(
-                f"Error '{e}' in {type(self)} treating content: {self.content[:100]}"
-            )
+            raise ImproperlyConfigured(f"Error '{e}' in {type(self)} treating content: {self.content[:100]}")
 
 
 @dataclasses.dataclass
 class Content(BaseContent):
-    content: Optional[Union[str, bytes, dict, list]] = None
-    ignore_fields: Optional[List[str]] = None
+    content: str | bytes | dict | list | None = None
+    ignore_fields: list[str] | None = None
 
     class Meta:
         least_one_required_fields = (
@@ -210,17 +188,10 @@ class Content(BaseContent):
             self.content = (
                 self.file_path.read_text()
                 if not self.yaml_test_file_path
-                else (
-                    self.yaml_test_file_path.parent.joinpath(self.file_path).read_text()
-                )
+                else (self.yaml_test_file_path.parent.joinpath(self.file_path).read_text())
             )
-        if (
-                self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML)
-                and self.ignore_fields is not None
-        ):
-            raise ImproperlyConfigured(
-                "ignore_fields can only be set when treating as JSON or YAML"
-            )
+        if self.treat_as not in (TreatableTypes.JSON, TreatableTypes.YAML) and self.ignore_fields is not None:
+            raise ImproperlyConfigured("ignore_fields can only be set when treating as JSON or YAML")
 
         match self.treat_as:
             case TreatableTypes.BYTES:
@@ -237,9 +208,7 @@ class Content(BaseContent):
                 log.info(f"Converting {self.file_path} to yaml")
                 if self.file_path:
                     self.content = self.__replace_json_paths(
-                        dict(
-                            EnvYAML(str(self.file_path))
-                        )  # TODO: review it! (self.content)
+                        dict(EnvYAML(str(self.file_path)))  # TODO: review it! (self.content)
                     )
 
     @staticmethod
@@ -267,7 +236,7 @@ class Content(BaseContent):
             return None
 
     @staticmethod
-    def __replace_by_path(data: Union[list, tuple, dict], path: str):
+    def __replace_by_path(data: list | tuple | dict, path: str):
         _path = []
         local_data = data
         path_parts = path.split(".")
@@ -283,7 +252,7 @@ class Content(BaseContent):
             if last_key in local_data:
                 local_data[last_key] = ANY
             if (intable_key is not None and len(local_data) >= intable_key) or (
-                    isinstance(local_data, Mapping) and local_data.get(intable_key) is not None
+                isinstance(local_data, Mapping) and local_data.get(intable_key) is not None
             ):
                 local_data[intable_key] = ANY
 
@@ -314,29 +283,29 @@ class WritableContent(BaseContent):
 class ConfigTestCase:
     test: str
 
-    expected_stdout: Optional[Content]
-    expected_stderr: Optional[Content]
+    expected_stdout: Content | None
+    expected_stderr: Content | None
 
-    flags: Optional[List[Flag]]  # = dataclasses.field(default_factory=list)
-    arguments: Optional[List[str]] = dataclasses.field(default_factory=list)
+    flags: list[Flag] | None  # = dataclasses.field(default_factory=list)
+    arguments: list[str] | None = dataclasses.field(default_factory=list)
 
     skip: bool = False
-    stdin: Optional[Content] = None
+    stdin: Content | None = None
 
-    stdout: Optional[WritableContent] = None
-    stderr: Optional[WritableContent] = None
+    stdout: WritableContent | None = None
+    stderr: WritableContent | None = None
 
     expected_return_code: int = 0
 
-    default_parameters: Optional[dict] = None
-    binary_path: Optional[Path] = None
-    yaml_test_file_path: Optional[Path] = None
+    default_parameters: dict | None = None
+    binary_path: Path | None = None
+    yaml_test_file_path: Path | None = None
     shell: bool = False
 
-    root_env: Optional[dict] = dataclasses.field(default_factory=dict)
-    env: Optional[dict] = dataclasses.field(default_factory=dict)
-    cwd: Optional[Path] = None
-    root_cwd: Optional[Path] = None
+    root_env: dict | None = dataclasses.field(default_factory=dict)
+    env: dict | None = dataclasses.field(default_factory=dict)
+    cwd: Path | None = None
+    root_cwd: Path | None = None
     show_results_diff: bool = True
 
     class Meta:
@@ -346,12 +315,9 @@ class ConfigTestCase:
             "expected_return_code",
         )
 
-    def build_command(self) -> List[str]:
+    def build_command(self) -> list[str]:
         log.debug(self.flags)
-        command = (
-            ([f for flag in self.flags for f in flag.build()] if self.flags else [])
-            + self.arguments
-        )
+        command = ([f for flag in self.flags for f in flag.build()] if self.flags else []) + self.arguments
         log.info(f"\n{command}")
         return command
 
@@ -361,21 +327,17 @@ class ConfigTestCase:
             log.debug(f"env: {env}")
             self.env = env
 
-        log.debug(
-            f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}"
-        )
+        log.debug(f"\n\n\nRESOLVE CWD\nself.cwd={self.cwd}\nself.root_cwd={self.root_cwd}")
         if self.cwd or self.root_cwd:
             self.cwd = self.cwd or self.root_cwd
 
-        if not any(
-                [field is not None for field in self.Meta.least_one_required_fields]
-        ):
+        if not any([field is not None for field in self.Meta.least_one_required_fields]):
             raise ImproperlyConfigured(
                 f"[{self.yaml_test_file_path}] At least one of {self.Meta.least_one_required_fields} must be provided"
             )
         # print(self)
 
-    def run(self, bin_path: Optional[Path] = None):
+    def run(self, bin_path: Path | None = None):
         if self.skip:
             return
 
@@ -401,9 +363,7 @@ class ConfigTestCase:
             cwd=self.cwd,
         )
         output, err = proc.communicate(stdin)
-        shorten_string = (
-            lambda s, ln: f"{s[:ln]} \n...\n {s[-ln:]}" if len(s) > ln else s
-        )
+        shorten_string = lambda s, ln: f"{s[:ln]} \n...\n {s[-ln:]}" if len(s) > ln else s  # noqa: E731
         log.info(f"PROCESS STDOUT: {shorten_string(output.decode(), 200)}")
         log.info(f"PROCESS STDERR: {shorten_string(err.decode(), 200)}")
 
@@ -436,10 +396,7 @@ class ConfigTestCase:
                 f"{self.test} - Stderr and expected error are different",
             )
 
-        if (
-                self.expected_return_code is not None
-                and self.expected_return_code != proc.returncode
-        ):
+        if self.expected_return_code is not None and self.expected_return_code != proc.returncode:
             # Returned return code is different than expected
             yield (
                 proc.returncode,
@@ -451,16 +408,16 @@ class ConfigTestCase:
 @dataclasses.dataclass
 class TestConfig:
     binary_path: Path
-    default_parameters: Dict[str, Any]
+    default_parameters: dict[str, Any]
     name: str
-    description: Optional[str]
-    tests: List[ConfigTestCase]
+    description: str | None
+    tests: list[ConfigTestCase]
 
-    yaml_test_file_path: Optional[Path] = None
+    yaml_test_file_path: Path | None = None
 
     skip: bool = False
-    env: Optional[dict] = dataclasses.field(default_factory=dict)
-    cwd: Optional[Path] = None
+    env: dict | None = dataclasses.field(default_factory=dict)
+    cwd: Path | None = None
 
     def __post_init__(self):
         log.info(f"ToolCommandTests.cwd = {self.cwd}")
@@ -482,16 +439,15 @@ class TestConfig:
         for test in self.tests:
             if test.skip:
                 continue
-            for exp, out, err in test.run(
-                    self.binary_path,
-            ):
-                yield exp, out, err
+            yield from test.run(
+                self.binary_path,
+            )
 
 
 def _content_resolver_wrapper(
-        cls: Union[Type[Content], Type[WritableContent]], yaml_test_file_path: Path
-) -> Callable[[Dict], Union[Content, WritableContent]]:
-    def content_resolver(content: Dict[Any, Any]) -> Union[Content, WritableContent]:
+    cls: type[Content] | type[WritableContent], yaml_test_file_path: Path
+) -> Callable[[dict], Content | WritableContent]:
+    def content_resolver(content: dict[Any, Any]) -> Content | WritableContent:
         return from_dict(
             data_class=cls,
             data=dict(yaml_test_file_path=yaml_test_file_path, **content),
@@ -504,13 +460,13 @@ def _content_resolver_wrapper(
     return content_resolver
 
 
-def load_configs() -> Optional[List[TestConfig]]:
+def load_configs() -> list[TestConfig] | None:
     tests_config_dir = config.TEST_CONFIGS_DIR
     log.warning(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
 
     exclude_path = config.EXCLUDE_CONFIGS_DIR
-    config_files_list: Union[list, tuple, Generator] = ()
+    config_files_list: list | tuple | Generator = ()
     if tests_config_dir.is_dir():
         config_files_list = Path(tests_config_dir).rglob("*.yaml")
     elif tests_config_dir.is_file():
@@ -524,9 +480,7 @@ def load_configs() -> Optional[List[TestConfig]]:
             log.info(f"Excluding file {config_file}")
             continue
         try:
-            additional_data = {
-                "yaml_test_file_path": Path(os.path.join(tests_config_dir, config_file))
-            }
+            additional_data = {"yaml_test_file_path": Path(os.path.join(tests_config_dir, config_file))}
             path_resolver = path_resolver_wrapper(**additional_data)
             test_config = from_dict(
                 data_class=TestConfig,
@@ -559,14 +513,12 @@ def load_configs() -> Optional[List[TestConfig]]:
             raise e
 
     if not gathered_configs:
-        raise ImproperlyConfigured("No configs found in {}".format(tests_config_dir))
+        raise ImproperlyConfigured(f"No configs found in {tests_config_dir}")
 
     active_configs = [config for config in gathered_configs if config.skip is not True]
 
     if not active_configs:
-        raise ImproperlyConfigured(
-            "No active configs found in {}".format(tests_config_dir)
-        )
+        raise ImproperlyConfigured(f"No active configs found in {tests_config_dir}")
     validate_configs(active_configs)
 
     return active_configs
@@ -585,7 +537,8 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
     for config_test in active_config.tests:
         if (
             config_test.stdout and config_test.expected_stdout and not check_output_content_type(
-                config_test.stdout, config_test.expected_stdout)
+                config_test.stdout,
+                config_test.expected_stdout)
         ):
             raise ImproperlyConfigured(
                 f"Test '{config_test.test}' stdout content type: "
@@ -594,7 +547,8 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
             )
         if (
             config_test.stderr and config_test.expected_stderr and not check_output_content_type(
-                config_test.stderr, config_test.expected_stderr)
+                config_test.stderr,
+                config_test.expected_stderr)
         ):
             raise ImproperlyConfigured(
                 f"Test '{config_test.test}' stderr content type: "
@@ -604,7 +558,7 @@ def validate_output_content_type(active_config: TestConfig) -> TestConfig:
     return active_config
 
 
-def check_output_content_type(actual_output: Union[Content, WritableContent], expected_output: Content) -> bool:
+def check_output_content_type(actual_output: Content | WritableContent, expected_output: Content) -> bool:
     """Check .treat_as property of the outputs and raise exception if type doesn't match."""
     return actual_output.treat_as.value == expected_output.treat_as.value
 
@@ -621,16 +575,18 @@ def validate_test_names_uniqueness(active_config: TestConfig) -> TestConfig:
     return active_config
 
 
-def validate_test_file_paths_uniqueness(active_congfigs: list[TestConfig]) -> list[TestConfig]:
+def validate_test_file_paths_uniqueness(
+    active_congfigs: list[TestConfig],
+) -> list[TestConfig]:
     """Check test stdout, stderr 'file_path' for uniqueness."""
     ALL_CONFIGS_FILE_PATHS = {
-        'stdout': set(),
-        'stderr': set(),
+        "stdout": set(),
+        "stderr": set(),
     }
     for active_config in active_congfigs:
         for config_test in active_config.tests:
             for field in ALL_CONFIGS_FILE_PATHS:
-                file_path = getattr(getattr(config_test, field, None), 'file_path', None)
+                file_path = getattr(getattr(config_test, field, None), "file_path", None)
                 if file_path:
                     if file_path in ALL_CONFIGS_FILE_PATHS[field]:
                         raise ImproperlyConfigured(
@@ -652,9 +608,7 @@ class BaseTestCase(TestWithDiffs):
             self.assertEqual(expected, actual, msg)
 
 
-def build_test_params(
-        tests_config_dir: Optional[Union[Path, str]] = "",
-) -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
+def build_test_params() -> tuple[tuple[str, str], list[tuple[str, ConfigTestCase]]]:
     loaded_configs = load_configs(
         # tests_config_dir=os.environ.get("TEST_CONFIGS_DIR", tests_config_dir)
     )
