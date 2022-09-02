@@ -3,12 +3,9 @@
 name: Build and test
 on:
   push:
-    branches:
-      - main
-      - dev
-      - "*"
+    branches: "*"
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
