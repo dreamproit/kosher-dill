@@ -9,8 +9,8 @@ class DummyTest(TestWithDiffs):
         "[@-1,138:147='source.sma'<__ANON_3>,5:20]"
     )
 
-    def test_characthersDiffModeExample1(self):
-        self.diffMode = 0
+    def test_characthers_diff_mode_example1(self):
+        self.diff_mode = 0
         actual = (
             "1. Duplicated target language name defined in your grammar on: free_input_string\n"
             "  text_chunk_end  Abstract Machine Language\n"
@@ -41,8 +41,8 @@ class DummyTest(TestWithDiffs):
         )
 
     # @unittest.skip
-    def test_wordsDiffModeExample1(self):
-        self.diffMode = 1
+    def test_words_diff_mode_example1(self):
+        self.diff_mode = 1
         actual = (
             "1. Duplicated target language name defined in your grammar on:"
             " free_input_string\n"
@@ -71,8 +71,8 @@ class DummyTest(TestWithDiffs):
         )
 
     # @unittest.skip
-    def test_linesDiffModeExample1(self):
-        self.diffMode = 2
+    def test_lines_diff_mode_example1(self):
+        self.diff_mode = 2
         actual = (
             "1. Duplicated target language name defined in your grammar on: free_input_string\n"
             "  text_chunk_end  Abstract Machine Language\n"

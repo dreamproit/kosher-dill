@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 import dataclasses
 import decimal
 import json
@@ -6,6 +5,7 @@ import logging
 import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
@@ -16,10 +16,8 @@ from unittest.mock import ANY
 from dacite import Config, from_dict
 from envyaml import EnvYAML
 
-# from yamlinclude.constructor import YamlIncludeConstructor
 from constants import COLORS, config, log_format
 from differ import TestWithDiffs
-
 
 # YamlIncludeConstructor.add_to_loader_class(
 #     loader_class=yaml.SafeLoader, base_dir="./test_configs"
@@ -113,8 +111,8 @@ class BaseContent:
     directory: Optional[Union[str, Path]] = None
 
     class Meta:
-        least_one_required_fields: List[str] = ()
-        not_allowed_together_fields: List[str] = ()
+        least_one_required_fields: List[str] = []
+        not_allowed_together_fields: List[str] = []
 
     def __str__(self):
         shorten_content = self.content if len(self.content) > 1000 else self.content[:100] + '...' + self.content[-100:]
@@ -348,7 +346,7 @@ class ConfigTestCase:
             "expected_return_code",
         )
 
-    def build_command(self, bin_path: Path) -> List[str]:
+    def build_command(self, bin_path: Path = None) -> List[str]:
         log.debug(self.flags)
         command = (
             ([f for flag in self.flags for f in flag.build()] if self.flags else [])
@@ -394,7 +392,6 @@ class ConfigTestCase:
         log.info(f"\t\t* In directory: {self.cwd}")
         # log.info(dict(os.environ))
         proc = subprocess.Popen(
-            # executable=self.binary_path,
             args=[str(self.binary_path)] + command,
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
@@ -476,7 +473,7 @@ class TestConfig:
             test.root_cwd = test.cwd or self.cwd
             test.cwd = test.cwd or self.yaml_test_file_path
 
-    def run_tests(self, verbose=False):
+    def run_tests(self):
         if self.skip:
             log.warning(f"{COLORS['yellow']}SKIPPING{COLORS['reset']} {self.name}")
             return
@@ -508,17 +505,11 @@ def _content_resolver_wrapper(
 
 
 def load_configs() -> Optional[List[TestConfig]]:
-    # global config
     tests_config_dir = config.TEST_CONFIGS_DIR
     log.warning(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
 
     exclude_path = config.EXCLUDE_CONFIGS_DIR
-    # os.environ.get("EXCLUDE_CONFIGS_DIR", "")
-
-    # exclude_path: Optional[Path] = None
-    # if exclude:
-    #     exclude_path: Path = Path(exclude).resolve()
     config_files_list: Union[list, tuple, Generator] = ()
     if tests_config_dir.is_dir():
         config_files_list = Path(tests_config_dir).rglob("*.yaml")
@@ -562,9 +553,6 @@ def load_configs() -> Optional[List[TestConfig]]:
                     },
                 ),
             )
-            # test_config.yaml_test_file_path = os.path.join(
-            #     tests_config_dir, config_file
-            # )
             gathered_configs.append(test_config)
         except Exception as e:
             log.error(f"Error loading config {config_file}: {e}")
@@ -595,26 +583,24 @@ def validate_configs(active_congfigs: list[TestConfig]) -> list[TestConfig]:
 def validate_output_content_type(active_config: TestConfig) -> TestConfig:
     """Validate output content type for each: stdout, stderr and expected_stdout, expected_stderr."""
     for config_test in active_config.tests:
-        if config_test.stdout and config_test.expected_stdout:
-            if not check_output_content_type(
-                    config_test.stdout,
-                    config_test.expected_stdout,
-            ):
-                raise ImproperlyConfigured(
-                    f"Test '{config_test.test}' stdout content type: "
-                    f"'{config_test.stdout.treat_as.name}' does not match "
-                    f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'."
-                )
-        if config_test.stderr and config_test.expected_stderr:
-            if not check_output_content_type(
-                    config_test.stderr,
-                    config_test.expected_stderr,
-            ):
-                raise ImproperlyConfigured(
-                    f"Test '{config_test.test}' stderr content type: "
-                    f"'{config_test.stderr.treat_as.name}' does not match "
-                    f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'."
-                )
+        if (
+            config_test.stdout and config_test.expected_stdout and not check_output_content_type(
+                config_test.stdout, config_test.expected_stdout)
+        ):
+            raise ImproperlyConfigured(
+                f"Test '{config_test.test}' stdout content type: "
+                f"'{config_test.stdout.treat_as.name}' does not match "
+                f"expected_stdout content type: '{config_test.expected_stdout.treat_as.name}'."
+            )
+        if (
+            config_test.stderr and config_test.expected_stderr and not check_output_content_type(
+                config_test.stderr, config_test.expected_stderr)
+        ):
+            raise ImproperlyConfigured(
+                f"Test '{config_test.test}' stderr content type: "
+                f"'{config_test.stderr.treat_as.name}' does not match "
+                f"expected_stderr content type: '{config_test.expected_stderr.treat_as.name}'."
+            )
     return active_config
 
 

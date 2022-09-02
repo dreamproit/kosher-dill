@@ -7,7 +7,6 @@ from typing import Optional, Union, Dict
 
 from dacite import from_dict, Config
 
-# from yamlinclude.constructor import YamlIncludeConstructor
 
 # YamlIncludeConstructor.add_to_loader_class(
 #     loader_class=yaml.SafeLoader, base_dir="./test_configs"
@@ -23,7 +22,7 @@ framework_config.read("tests.conf")
 class EnvTestsConfig:
     LOG_LEVEL: Optional[str] = logging.ERROR
     TEST_CONFIGS_DIR: Optional[Path] = Path("./test_configs")
-    EXCLUDE_CONFIGS_DIR: Optional[Path] = ""
+    EXCLUDE_CONFIGS_DIR: Optional[Path] = None
 
 
 def _path_resolver(value: Union[str, Path, list]) -> Path:

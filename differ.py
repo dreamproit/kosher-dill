@@ -105,17 +105,17 @@ class DiffMatchPatch(diff_match_patch.diff_match_patch):
             the array of unique strings.  The zeroth element of the array of unique
             strings is intentionally blank.
         """
-        lineArray = []  # e.g. lineArray[4] == "Hello\n"
-        lineHash = {}  # e.g. lineHash["Hello\n"] == 4
+        line_array = []  # e.g. line_array[4] == "Hello\n"
+        line_hash = {}  # e.g. line_hash["Hello\n"] == 4
 
         # "\x00" is a valid character, but various debuggers don't like it.
         # So we'll insert a junk entry to avoid generating a null character.
-        lineArray.append("")
+        line_array.append("")
 
-        def diff_linesToCharsMunge(text):
+        def diff_lines_to_chars_munge(text):
             """Split a text into an array of strings.  Reduce the texts to a string
             of hashes where each Unicode character represents one line.
-            Modifies linearray and linehash through being a closure.
+            Modifies line_array and line_hash through being a closure.
             Args:
                 text: String to encode.
             Returns:
@@ -125,38 +125,38 @@ class DiffMatchPatch(diff_match_patch.diff_match_patch):
             # Walk the text, pulling out a substring for each line.
             # text.split('\n') would would temporarily double our memory footprint.
             # Modifying text would create many large strings to garbage collect.
-            lineStart = 0
-            lineEnd = -1
-            while lineEnd < len(text) - 1:
-                lineEnd = delimiter.search(text, lineStart)
+            line_start = 0
+            line_end = -1
+            while line_end < len(text) - 1:
+                line_end = delimiter.search(text, line_start)
 
-                if lineEnd:
-                    lineEnd = lineEnd.start()
+                if line_end:
+                    line_end = line_end.start()
 
                 else:
-                    lineEnd = len(text) - 1
+                    line_end = len(text) - 1
 
-                line = text[lineStart: lineEnd + 1]
+                line = text[line_start: line_end + 1]
 
-                if line in lineHash:
-                    chars.append(chr(lineHash[line]))
+                if line in line_hash:
+                    chars.append(chr(line_hash[line]))
                 else:
-                    if len(lineArray) == maxLines:
+                    if len(line_array) == max_lines:
                         # Bail out at 1114111 because chr(1114112) throws.
-                        line = text[lineStart:]
-                        lineEnd = len(text)
-                    lineArray.append(line)
-                    lineHash[line] = len(lineArray) - 1
-                    chars.append(chr(len(lineArray) - 1))
-                lineStart = lineEnd + 1
+                        line = text[line_start:]
+                        line_end = len(text)
+                    line_array.append(line)
+                    line_hash[line] = len(line_array) - 1
+                    chars.append(chr(len(line_array) - 1))
+                line_start = line_end + 1
             return "".join(chars)
 
         # Allocate 2/3rds of the space for text1, the rest for text2.
-        maxLines = 666666
-        chars1 = diff_linesToCharsMunge(text1)
-        maxLines = 1114111
-        chars2 = diff_linesToCharsMunge(text2)
-        return (chars1, chars2, lineArray)
+        max_lines = 666666
+        chars1 = diff_lines_to_chars_munge(text1)
+        max_lines = 1114111
+        chars2 = diff_lines_to_chars_munge(text2)
+        return (chars1, chars2, line_array)
 
 
 class TestWithDiffs(unittest.TestCase):
@@ -164,12 +164,12 @@ class TestWithDiffs(unittest.TestCase):
     maxDiff = None
 
     # Whether `characters diff=0`, `words diff=1` or `lines diff=2` will be used
-    diffMode = 1
+    diff_mode = 1
 
     def __init__(self, *args, **kwargs):
-        diffMode = kwargs.pop("diffMode", -1)
-        if diffMode > -1:
-            self.diffMode = diffMode
+        diff_mode = kwargs.pop("diff_mode", -1)
+        if diff_mode > -1:
+            self.diff_mode = diff_mode
 
         super(TestWithDiffs, self).__init__(*args, **kwargs)
 
@@ -207,9 +207,6 @@ class TestWithDiffs(unittest.TestCase):
         How to wrap correctly the unit testing diff?
         https://stackoverflow.com/questions/52682351/how-to-wrap-correctly-the-unit-testing-diff
         """
-        # print( '\n\nexpected\n%s' % expected )
-        # print( '\n\nactual\n%s' % actual )
-
         if msg:
             msg = f"\n{colors['magenta']} {msg}{colors['reset']}\n"
 
@@ -236,22 +233,22 @@ class TestWithDiffs(unittest.TestCase):
 
         if expected != actual:
             diff_match = DiffMatchPatch()
-            if self.diffMode == 0:
+            if self.diff_mode == 0:
                 diffs = diff_match.diff_main(expected, actual)
 
             else:
                 diff_struct = diff_match.diff_linesToWords(
                     expected,
                     actual,
-                    re.compile(r"\b") if self.diffMode == 1 else re.compile(r"\n"),
+                    re.compile(r"\b") if self.diff_mode == 1 else re.compile(r"\n"),
                 )
 
-                lineText1 = diff_struct[0]  # .chars1;
-                lineText2 = diff_struct[1]  # .chars2;
-                lineArray = diff_struct[2]  # .lineArray;
+                line_text1 = diff_struct[0]  # .chars1;
+                line_text2 = diff_struct[1]  # .chars2;
+                line_array = diff_struct[2]  # .line_array;
 
-                diffs = diff_match.diff_main(lineText1, lineText2, False)
-                diff_match.diff_charsToLines(diffs, lineArray)
+                diffs = diff_match.diff_main(line_text1, line_text2, False)
+                diff_match.diff_charsToLines(diffs, line_array)
                 diff_match.diff_cleanupSemantic(diffs)
 
             if msg:
