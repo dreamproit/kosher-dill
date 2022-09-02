@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 import dataclasses
 import decimal
 import json
@@ -284,7 +285,7 @@ class Content(BaseContent):
             if last_key in local_data:
                 local_data[last_key] = ANY
             if (intable_key is not None and len(local_data) >= intable_key) or (
-                    local_data.get(intable_key) is not None
+                    if isinstance(local_data, Mapping) and local_data.get(intable_key) is not None
             ):
                 local_data[intable_key] = ANY
 
