@@ -39,7 +39,7 @@ imports = ["__future__", "builtins", "collections", "contextlib", "dataclasses",
 [tool.tox]
 legacy_tox_ini = """
 [tox]
-envlist = py310
+envlist = py311
 skipsdist = True
 [testenv]
 setenv =

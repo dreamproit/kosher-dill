@@ -9,14 +9,14 @@ from collections.abc import Callable, Generator, Mapping
 from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Optional, Union
 from unittest.mock import ANY
 
 from dacite import Config, from_dict
 from envyaml import EnvYAML
 
-from .constants import COLORS, config, log_format
-from .differ import TestWithDiffs
+from constants import COLORS, config, log_format
+from differ import TestWithDiffs
 
 log = logging.getLogger(__name__)
 log.setLevel(
@@ -78,8 +78,8 @@ class TreatableTypes(Enum):
 @dataclasses.dataclass
 class Flag:
     name: str
-    type: FlagTypeEnum | None
-    value: str | Path | int | float | decimal.Decimal | None  # = None
+    type: Optional[FlagTypeEnum]
+    value: Optional[Union[str, Path, int, float, decimal.Decimal]]  # = None
 
     def __post_init__(self):
         log.info(f"Flag.__post_init__({self})")
@@ -106,12 +106,12 @@ class Flag:
 
 @dataclasses.dataclass
 class BaseContent:
-    content: str | bytes | dict | list | None
+    content: Optional[Union[str, bytes, dict, list]]
     encoding: Literal["utf-8"] = "utf-8"
     treat_as: TreatableTypes = TreatableTypes.BYTES
-    file_path: list | Path | None = None
-    yaml_test_file_path: Path | None = None
-    directory: str | Path | None = None
+    file_path: Optional[Union[list, Path]] = None
+    yaml_test_file_path: Optional[Path] = None
+    directory: Optional[Union[str, Path]] = None
 
     class Meta:
         least_one_required_fields: list[str] = []
@@ -177,8 +177,8 @@ class BaseContent:
 
 @dataclasses.dataclass
 class Content(BaseContent):
-    content: str | bytes | dict | list | None = None
-    ignore_fields: list[str] | None = None
+    content: Optional[Union[str, bytes, dict, list]] = None
+    ignore_fields: Optional[list[str]] = None
 
     class Meta:
         least_one_required_fields = (
@@ -292,29 +292,29 @@ class WritableContent(BaseContent):
 class ConfigTestCase:
     test: str
 
-    expected_stdout: Content | None
-    expected_stderr: Content | None
+    flags: Optional[list[Flag]]  # = dataclasses.field(default_factory=list)
+    arguments: Optional[list[str]] = dataclasses.field(default_factory=list)
 
-    flags: list[Flag] | None  # = dataclasses.field(default_factory=list)
-    arguments: list[str] | None = dataclasses.field(default_factory=list)
+    expected_stdout: Optional[Content] = None
+    expected_stderr: Optional[Content] = None
 
     skip: bool = False
-    stdin: Content | None = None
+    stdin: Optional[Content] = None
 
-    stdout: WritableContent | None = None
-    stderr: WritableContent | None = None
+    stdout: Optional[WritableContent] = None
+    stderr: Optional[WritableContent] = None
 
     expected_return_code: int = 0
 
-    default_parameters: dict | None = None
-    binary_path: Path | None = None
-    yaml_test_file_path: Path | None = None
+    default_parameters: Optional[dict] = None
+    binary_path: Optional[Path] = None
+    yaml_test_file_path: Optional[Path] = None
     shell: bool = False
 
-    root_env: dict | None = dataclasses.field(default_factory=dict)
-    env: dict | None = dataclasses.field(default_factory=dict)
-    cwd: Path | None = None
-    root_cwd: Path | None = None
+    root_env: Optional[dict] = dataclasses.field(default_factory=dict)
+    env: Optional[dict] = dataclasses.field(default_factory=dict)
+    cwd: Optional[Path] = None
+    root_cwd: Optional[Path] = None
     show_results_diff: bool = True
 
     class Meta:
@@ -346,7 +346,7 @@ class ConfigTestCase:
             )
         # print(self)
 
-    def run(self, bin_path: Path | None = None):  # noqa: CCR001
+    def run(self, bin_path: Optional[Path] = None):  # noqa: CCR001
         if self.skip:
             return
 
@@ -419,14 +419,14 @@ class TestConfig:
     binary_path: Path
     default_parameters: dict[str, Any]
     name: str
-    description: str | None
+    description: Optional[str]
     tests: list[ConfigTestCase]
 
-    yaml_test_file_path: Path | None = None
+    yaml_test_file_path: Optional[Path] = None
 
     skip: bool = False
-    env: dict | None = dataclasses.field(default_factory=dict)
-    cwd: Path | None = None
+    env: Optional[dict] = dataclasses.field(default_factory=dict)
+    cwd: Optional[Path] = None
 
     def __post_init__(self):
         log.info(f"ToolCommandTests.cwd = {self.cwd}")
@@ -470,7 +470,7 @@ def _content_resolver_wrapper(
     return content_resolver
 
 
-def load_configs() -> list[TestConfig] | None:
+def load_configs() -> Optional[list[TestConfig]]:
     tests_config_dir = config.TEST_CONFIGS_DIR
     log.warning(f"Loading configs from {tests_config_dir}")
     gathered_configs = []
