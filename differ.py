@@ -5,11 +5,11 @@ import unittest
 import dictdiffer
 import diff_match_patch
 
-from constants import COLORS as colors, ACTION_COLOR_MAP as color_map
+from constants import ACTION_COLOR_MAP as color_map
+from constants import COLORS as colors
 
 
 class DiffMatchPatch(diff_match_patch.diff_match_patch):
-
     def parse(self, sign, diffs, index, cut_next_new_line, results_diff):
         operations = (self.DIFF_INSERT, self.DIFF_DELETE)
         op, text = diffs[index]
@@ -31,12 +31,7 @@ class DiffMatchPatch(diff_match_patch.diff_match_patch):
 
         if new[-1] == "\n":
 
-            if (
-                    op == self.DIFF_INSERT
-                    and next_text
-                    and new[-1] == "\n"
-                    and next_text[0] == "\n"
-            ):
+            if op == self.DIFF_INSERT and next_text and new[-1] == "\n" and next_text[0] == "\n":
                 cut_next_new_line[0] = True
 
                 # Avoids a double plus sign showing up when the diff has the element (1, '\n')
@@ -161,7 +156,7 @@ class DiffMatchPatch(diff_match_patch.diff_match_patch):
 
 class TestWithDiffs(unittest.TestCase):
     # Set the maximum size of the assertion error message when Unit Test fail
-    maxDiff = None
+    maxDiff = None  #
 
     # Whether `characters diff=0`, `words diff=1` or `lines diff=2` will be used
     diff_mode = 1
@@ -171,7 +166,7 @@ class TestWithDiffs(unittest.TestCase):
         if diff_mode > -1:
             self.diff_mode = diff_mode
 
-        super(TestWithDiffs, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def setUp(self):
         if diff_match_patch:
@@ -179,9 +174,9 @@ class TestWithDiffs(unittest.TestCase):
 
     @staticmethod
     def diff_chunk_as_text(
-            chunk,
-            prepend="",
-            # , colors: dict[str, str] = None, color_map: dict[str, str] = None
+        chunk,
+        prepend="",
+        # , colors: dict[str, str] = None, color_map: dict[str, str] = None
     ):
         action, path, values = chunk
         text = f"{prepend}{color_map[action]} => {action.upper()}{colors['reset']}: "
@@ -210,19 +205,10 @@ class TestWithDiffs(unittest.TestCase):
         if msg:
             msg = f"\n{colors['magenta']} {msg}{colors['reset']}\n"
 
-        if (
-                not isinstance(expected, (str, bytes))
-                and not isinstance(actual, (str, bytes))
-                and expected != actual
-        ):
+        if not isinstance(expected, (str, bytes)) and not isinstance(actual, (str, bytes)) and expected != actual:
             diff_chunks = list(dictdiffer.diff(expected, actual, expand=True))
             diff = "\n".join(
-                [
-                    self.diff_chunk_as_text(
-                        chunk, prepend="\t"
-                    )  # , COLORS, ACTION_COLOR_MAP)
-                    for chunk in diff_chunks
-                ]
+                [self.diff_chunk_as_text(chunk, prepend="\t") for chunk in diff_chunks]  # , COLORS, ACTION_COLOR_MAP)
             )
             self.fail(f"{msg}\n{diff}\n")
 
