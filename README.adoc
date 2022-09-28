@@ -7,6 +7,7 @@ https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://s
 Rating]]
 https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=bugs[Bugs]]
 https://sonarcloud.io/summary/new_code?id=dreamproit_kosher-dill[image:https://sonarcloud.io/api/project_badges/measure?project=dreamproit_kosher-dill&metric=vulnerabilities[Vulnerabilities]]
+image:https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white[pre-commit, link=https://github.com/pre-commit/pre-commit]
 
 :toc:
 
